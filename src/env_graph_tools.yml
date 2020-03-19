@@ -1,0 +1,16 @@
+name: graph-tools
+
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - pylint
+  - pytest
+  - jupyterlab
+  - apscheduler
+  - geopandas
+  - python-igraph
+  - boto3
+  - rasterio
+  - rioxarray
+  - xarray
