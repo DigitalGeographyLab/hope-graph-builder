@@ -9,9 +9,10 @@ class Logger:
         log_file (optional): A name for a log file (in the root of the application) where log messages should be written.
     """
 
-    def __init__(self, printing: bool = False, log_file: str = None):
+    def __init__(self, printing: bool = False, log_file: str = None, level: str = 'info'):
         self.printing = printing
         self.log_file = log_file
+        self.level = {'debug': 4, 'info': 3, 'warning': 2, 'error': 1}[level]
 
     def print_log(self, text, level):
         """Prints a log message to console/terminal and/or to a log file (if specified at init). The log message is prefixed
@@ -26,13 +27,13 @@ class Logger:
                 the_file.write(log_text + '\n')
 
     def debug(self, text: str):
-        self.print_log(text, 'DEBUG')
+        if (self.level >= 4): self.print_log(text, 'DEBUG')
 
     def info(self, text: str):
-        self.print_log(text, 'INFO')
+        if (self.level >= 3): self.print_log(text, 'INFO')
 
     def warning(self, text: str):
-        self.print_log(text, 'WARNING')
+        if (self.level >= 2): self.print_log(text, 'WARNING')
 
     def error(self, text: str):
         self.print_log(text, 'ERROR')
