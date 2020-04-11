@@ -132,3 +132,5 @@ src/.vscode/settings.json
 
 # data
 otp_graph_data/
+docs/python-igraph.pdf
+src/.vscode/launch.json
