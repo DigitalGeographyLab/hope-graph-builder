@@ -2,6 +2,7 @@ import sys
 sys.path.append('..')
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+from shapely.geometry import Point, LineString
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -18,27 +19,39 @@ log = Logger(printing=True, log_file='otp2igraph_import.log', level='info')
 
 # 1) read OTP graph data from CSV files
 
+# edges
 e = pd.read_csv('otp_graph_data/edges.csv', sep=';')
 e = e.rename(columns={'id': 'id_otp'})
 log.info(f'read {len(e.index)} edges')
 log.debug(f'edge column types: {e.dtypes}')
 log.debug(f'edges head: {e.head()}')
-e['geometry'] = [shapely.wkt.loads(geom) if isinstance(geom, str) else None for geom in e['geometry']]
+log.info('reading edges to gdf')
+e['geometry'] = [shapely.wkt.loads(geom) if isinstance(geom, str) else LineString() for geom in e['geometry']]
+e['geom_wgs'] = e['geometry']
+e = gpd.GeoDataFrame(e, geometry='geometry', crs=from_epsg(4326))
+log.info('reprojecting edges to etrs')
+e = e.to_crs(epsg=3879)
+log.debug(f'edges head: {e.head()}')
 
+# nodes
 n = pd.read_csv('otp_graph_data/nodes.csv', sep=';')
 n = n.rename(columns={'id': 'id_otp'})
 log.info(f'read {len(n.index)} nodes')
 log.debug(f'node column types: {n.dtypes}')
 log.debug(f'nodes head: {n.head()}')
-n['geometry'] = [shapely.wkt.loads(geom) if isinstance(geom, str) else None for geom in n['geometry']]
+log.info('reading nodes to gdf')
+n['geometry'] = [shapely.wkt.loads(geom) if isinstance(geom, str) else Point() for geom in n['geometry']]
+e['geom_wgs'] = e['geometry']
+n = gpd.GeoDataFrame(n, geometry='geometry', crs=from_epsg(4326))
+log.info('reprojecting nodes to etrs')
+n = n.to_crs(epsg=3879)
+log.debug(f'nodes head: {n.head()}')
 
 if (export_to_gpkg == True):
     log.info('writing graph data to gpkg')
-    e_gdf = gpd.GeoDataFrame(e, geometry='geometry', crs=from_epsg(4326))
-    e_gdf.to_file(otp_graph_gpkg, layer='edges', driver='GPKG')
+    e.to_file(otp_graph_gpkg, layer='edges', driver='GPKG')
     log.info(f'exported edges to {otp_graph_gpkg} (layer=edges)')
-    n_gdf = gpd.GeoDataFrame(n, geometry='geometry', crs=from_epsg(4326))
-    n_gdf.to_file(otp_graph_gpkg, layer='nodes', driver='GPKG')
+    n.to_file(otp_graph_gpkg, layer='nodes', driver='GPKG')
     log.info(f'exported nodes to {otp_graph_gpkg} (layer=nodes)')
 
 def filter_df_by_query(df: pd.DataFrame, query: str, name: str = 'rows'):
@@ -138,8 +151,6 @@ if (export_to_gpkg == True):
 
 # 7) collect IDs of the edges that need to be removed
 rm_edge_ids = [edge['id_ig'] for edge in small_graph_edges]
-
-# TODO reproject graph data to etrs
 
 # TODO select a subset of the graph by HMA
 
