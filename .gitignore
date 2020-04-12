@@ -134,3 +134,4 @@ src/.vscode/settings.json
 otp_graph_data/
 docs/python-igraph.pdf
 src/.vscode/launch.json
+src/otp2igraph_import/.vscode/settings.json
