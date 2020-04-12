@@ -100,7 +100,7 @@ G.es['uv_ig'] = list(e_filt['uv_ig'])
 G.es['geometry'] = list(e_filt['geometry'])
 # TODO add rest of the edge attributes
 
-# 8) remove graph features outside Helsinki Metropolitan Area (HMA)
+# 8) delete graph features outside Helsinki Metropolitan Area (HMA)
 hma_buffered = hma_poly.buffer(100)
 
 def intersects_hma(geom: LineString):
@@ -119,6 +119,10 @@ before_count = G.ecount()
 G.delete_edges(e_gdf_del.index.tolist())
 after_count = G.ecount()
 log.info(f'deleted {before_count-after_count} edges')
+
+# reassign igraph indexes to edge and node attributes
+G.es['id_ig'] = [e.index for e in G.es]
+G.vs['id_ig'] = [v.index for v in G.vs]
 
 # 9) find and inspect subgraphs by decomposing the graph
 sub_graphs = G.decompose(mode='STRONG')
@@ -158,11 +162,11 @@ for graph_id, graph in enumerate(big_graphs):
 
 if (debug_igraphs == True):
     log.info('exporting subgraphs to gpkg')
-    # graphs with <= 10 edges
+    # graphs with <= 15 edges
     small_graph_edges_gdf = gpd.GeoDataFrame(small_graph_edges, crs=from_epsg(4326))
     log.info(f'{small_graph_edges_gdf.head()}')
     small_graph_edges_gdf.to_file(graph_debug_gpkg, layer='small_graph_edges', driver='GPKG')
-    # graphs with  10–500 edges
+    # graphs with  15–500 edges
     medium_graph_edges_gdf = gpd.GeoDataFrame(medium_graph_edges, crs=from_epsg(4326))
     log.info(f'{medium_graph_edges_gdf.head()}')
     medium_graph_edges_gdf.to_file(graph_debug_gpkg, layer='medium_graph_edges', driver='GPKG')
@@ -172,10 +176,20 @@ if (debug_igraphs == True):
     big_graph_edges_gdf.to_file(graph_debug_gpkg, layer='big_graph_edges', driver='GPKG')
     log.info(f'graphs exported')
 
-# 10) collect IDs of the edges that need to be removed
-rm_edge_ids = [edge['id_ig'] for edge in small_graph_edges]
+# 10) delete smallest subgraphs from the graph
+del_edge_ids = [edge['id_ig'] for edge in small_graph_edges]
+log.info(f'deleting {len(del_edge_ids)} isolated edges')
+before_count = G.ecount()
+G.delete_edges(del_edge_ids)
+after_count = G.ecount()
+del_ratio = round(100 * (before_count-after_count) / before_count, 1)
+log.info(f'deleted {before_count-after_count} ({del_ratio} %) edges')
 
-# TODO select a subset of the graph by HMA
-
-# TODO remove isolated nodes from the graph
-# rm_node_ids = list(G.vs.select(_degree_eq=0))
+# 11) delete isolated nodes from the graph
+del_node_ids = G.vs.select(_degree_eq=0)['id_ig']
+log.info(f'deleting {len(del_node_ids)} isolated nodes')
+before_count = G.vcount()
+G.delete_vertices(del_node_ids)
+after_count = G.vcount()
+del_ratio = round(100 * (before_count-after_count) / before_count, 1)
+log.info(f'deleted {before_count-after_count} ({del_ratio} %) nodes')
