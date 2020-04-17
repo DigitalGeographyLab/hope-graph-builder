@@ -1,9 +1,12 @@
+from enum import Enum
+from typing import List, Set, Dict, Tuple
 import geopandas as gpd
 import igraph as ig
 from igraph import Graph
 from fiona.crs import from_epsg
+from common.constants import Node, Edge
 
-def get_edge_dicts(G: Graph, attrs: list = ['geometry']) -> list:
+def get_edge_dicts(G: Graph, attrs: List[Enum] = [Edge.geometry]) -> list:
     """Returns list of all edges of a graph as dictionaries with the specified attributes. 
     """
     edge_dicts = []
@@ -11,12 +14,12 @@ def get_edge_dicts(G: Graph, attrs: list = ['geometry']) -> list:
         edge_attrs = edge.attributes()
         edge_dict = {}
         for attr in attrs:
-            if (attr in edge_attrs):
-                edge_dict[attr] = edge_attrs[attr]
+            if (attr.value in edge_attrs):
+                edge_dict[attr.name] = edge_attrs[attr.value]
         edge_dicts.append(edge_dict)
     return edge_dicts
 
-def get_edge_gdf(G: Graph, id_attr: str = None, attrs: list = [], geom_attr: str = 'geometry', epsg: int = 3879) -> gpd.GeoDataFrame:
+def get_edge_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Edge.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
     """Returns edges of a graph as pandas GeoDataFrame. 
     """
     edge_dicts = []
@@ -24,18 +27,19 @@ def get_edge_gdf(G: Graph, id_attr: str = None, attrs: list = [], geom_attr: str
     for edge in G.es:
         edge_dict = {}
         edge_attrs = edge.attributes()
-        ids.append(edge_attrs[id_attr] if id_attr is not None else edge.index)
-        edge_dict['geometry'] = edge_attrs[geom_attr]
+        ids.append(edge_attrs[id_attr.value] if id_attr is not None else edge.index)
+        edge_dict[geom_attr.name] = edge_attrs[geom_attr.value]
         for attr in attrs:
-            if (attr in edge_attrs):
-                edge_dict[attr] = edge_attrs[attr]
-            elif (hasattr(edge, attr)):
+            if (attr.value in edge_attrs):
+                edge_dict[attr.name] = edge_attrs[attr.value]
+        for attr in ig_attrs:
+            if (hasattr(edge, attr)):
                 edge_dict[attr] = getattr(edge, attr)
         edge_dicts.append(edge_dict)
 
     return gpd.GeoDataFrame(edge_dicts, index=ids, crs=from_epsg(epsg))
 
-def get_node_gdf(G: Graph, id_attr: str = None, attrs: list = [], geom_attr: str = 'geometry', epsg: int = 3879) -> gpd.GeoDataFrame:
+def get_node_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Node.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
     """Returns nodes of a graph as pandas GeoDataFrame. 
     """
     node_dicts = []
@@ -43,12 +47,13 @@ def get_node_gdf(G: Graph, id_attr: str = None, attrs: list = [], geom_attr: str
     for node in G.vs:
         node_dict = {}
         node_attrs = node.attributes()
-        ids.append(node_attrs[id_attr] if id_attr is not None else node.index)
-        node_dict['geometry'] = node_attrs[geom_attr]
+        ids.append(node_attrs[id_attr.value] if id_attr is not None else node.index)
+        node_dict[geom_attr.name] = node_attrs[geom_attr.value]
         for attr in attrs:
-            if(attr in node_attrs):
-                node_dict[attr] = node_attrs[attr]
-            elif (hasattr(node, attr)):
+            if(attr.value in node_attrs):
+                node_dict[attr.name] = node_attrs[attr.value]
+        for attr in ig_attrs:
+            if (hasattr(node, attr)):
                 node_dict[attr] = getattr(node, attr)
         node_dicts.append(node_dict)
 
