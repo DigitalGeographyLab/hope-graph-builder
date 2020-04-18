@@ -4,7 +4,8 @@ import geopandas as gpd
 import igraph as ig
 from igraph import Graph
 from fiona.crs import from_epsg
-from common.constants import Node, Edge
+from common.constants import Node, Edge, edge_attr_converters, node_attr_converters
+from common.logger import Logger
 
 def get_edge_dicts(G: Graph, attrs: List[Enum] = [Edge.geometry]) -> list:
     """Returns list of all edges of a graph as dictionaries with the specified attributes. 
@@ -58,3 +59,40 @@ def get_node_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attr
         node_dicts.append(node_dict)
 
     return gpd.GeoDataFrame(node_dicts, index=ids, crs=from_epsg(epsg))
+
+def read_graphml(graph_file: str, log: Logger = None) -> ig.Graph:
+    G = ig.Graph()
+    G = G.Read_GraphML(graph_file)
+    del(G.vs['id'])
+    for attr in G.vs[0].attributes():
+        try:
+            converter = node_attr_converters[Node(attr)]
+            G.vs[attr] = [converter(value) for value in list(G.vs[attr])]
+        except Exception:
+            if (log is not None): log.warning(f'failed to read node attribute {attr}')
+    for attr in G.es[0].attributes():
+        try:
+            converter = edge_attr_converters[Edge(attr)]
+            G.es[attr] = [converter(value) for value in list(G.es[attr])]
+        except Exception:
+            if (log is not None): log.warning(f'failed to read edge attribute {attr}')
+    return G
+
+def export_to_graphml(G: Graph, graph_file: str, n_attrs=[], e_attrs=[]):
+    Gc = G.copy()
+    if (n_attrs == []):
+        for attr in Node:
+            if (attr.value in Gc.vs[0].attributes()):
+                Gc.vs[attr.value] = [str(value) for value in list(Gc.vs[attr.value])]
+    else:
+        for attr in n_attrs:
+            Gc.vs[attr] = [str(value) for value in list(Gc.vs[attr])]
+    if (e_attrs == []):
+        for attr in Edge:
+            if (attr.value in Gc.es[0].attributes()):
+                Gc.es[attr.value] = [str(value) for value in list(Gc.es[attr.value])]
+    else:
+        for attr in e_attrs:
+            Gc.es[attr] = [str(value) for value in list(Gc.es[attr])]
+
+    Gc.save(graph_file, format='graphml')

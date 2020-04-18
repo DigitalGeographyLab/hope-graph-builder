@@ -89,8 +89,6 @@ def convert_otp_graph_to_igraph(
     G = ig.Graph(directed=True)
     G.add_vertices(len(n.index))
     for attr in Node:
-        if (attr == Node.version):
-            continue
         if (attr.name in n.columns):
             G.vs[attr.value] = list(n[attr.name])
         else:
@@ -106,8 +104,6 @@ def convert_otp_graph_to_igraph(
     e_filt[Edge.id_ig.name] = np.arange(len(e_filt.index))
     G.add_edges(list(e_filt['uv_ig']))
     for attr in Edge:
-        if (attr == Edge.version):
-            continue
         if (attr.name in e_filt.columns):
             G.es[attr.value] = list(e_filt[attr.name])
         else:
@@ -229,14 +225,17 @@ def convert_otp_graph_to_igraph(
         e_gdf.to_file(debug_igraph_gpkg, layer='final_graph_edges', driver='GPKG')
         n_gdf.to_file(debug_igraph_gpkg, layer='final_graph_nodes', driver='GPKG')
 
-    log.info('all done')
-    return {'node_count': G.vcount(), 'edge_count': G.ecount()}
+    if (igraph_out_file is not None and igraph_out_file is not ''):
+        ig_utils.export_to_graphml(G, igraph_out_file)
+
+    return G
 
 
 if (__name__ == '__main__'):
-    convert_otp_graph_to_igraph(
-        node_csv_file = 'otp_graph_data/nodes.csv',
-        edge_csv_file = 'otp_graph_data/edges.csv',
+    log = Logger(printing=True, log_file='otp2igraph_import.log', level='info')
+    graph = convert_otp_graph_to_igraph(
+        node_csv_file = 'otp_graph_data/test_nodes.csv',
+        edge_csv_file = 'otp_graph_data/test_edges.csv',
         hma_poly_file = 'extent_data/HMA.geojson',
         igraph_out_file = '',
         b_export_otp_data_to_gpkg = False,
@@ -244,5 +243,6 @@ if (__name__ == '__main__'):
         b_export_final_graph_to_gpkg = False,
         debug_otp_graph_gpkg = 'debug/otp_graph_features.gpkg',
         debug_igraph_gpkg = 'debug/otp2igraph_features.gpkg',
-        log = Logger(printing=True, log_file='otp2igraph_import.log', level='info')
+        log = log
     )
+    log.info(f'created igraph of {graph.ecount()} edges and {graph.vcount()} nodes from OTP data')

@@ -1,5 +1,6 @@
 import sys
 sys.path.append('..')
+import os
 import unittest
 from shapely.geometry import LineString, Polygon
 import pandas as pd
@@ -8,7 +9,10 @@ import shapely.wkt
 from fiona.crs import from_epsg
 from common.constants import Node, Edge
 from common.logger import Logger
+import common.igraph as ig_utils
 from otp2igraph_import.otp2igraph_import import convert_otp_graph_to_igraph
+
+test_graph_file = 'test_graph.graphml'
 
 def intersects_polygon(geom: LineString, polygon: Polygon):
     if (geom.is_empty == True): return True
@@ -21,30 +25,34 @@ class TestCreateTestOtpGraphData(unittest.TestCase):
         test_area = gpd.read_file('data/test_area.geojson')['geometry'][0]
 
         e = pd.read_csv('data/edges.csv', sep=';')
-        self.assertEqual(1282306, len(e))
+        self.assertEqual(len(e), 1282306)
         e[Edge.geometry.name] = [shapely.wkt.loads(geom) if isinstance(geom, str) else LineString() for geom in e[Edge.geometry.name]]
         e = gpd.GeoDataFrame(e, geometry=Edge.geometry.name, crs=from_epsg(4326))
         e['in_test_area'] = [intersects_polygon(line, test_area) for line in e[Edge.geometry.name]]
         e_filt = e.query('in_test_area == True').copy()
         e_filt.drop(columns=['in_test_area']).to_csv('data/test_edges.csv', sep=';')
-        self.assertEqual(6314, len(e_filt))
+        self.assertEqual(len(e_filt), 6314)
         used_nodes = set(list(e_filt['node_orig_id'])+list(e_filt['node_dest_id']))
 
         n = pd.read_csv('data/nodes.csv', sep=';')
-        self.assertEqual(474874, len(n))
+        self.assertEqual(len(n), 474874)
         n['in_test_area'] = [True if id_otp in used_nodes else False for id_otp in n['id_otp']]
         n_filt = n.query('in_test_area == True').copy()
         n_filt.drop(columns=['in_test_area']).to_csv('data/test_nodes.csv', sep=';')
-        self.assertEqual(3420, len(n_filt))
+        self.assertEqual(len(n_filt), 3420)
 
 class TestOtp2IgraphImport(unittest.TestCase):
     
+    @classmethod
+    def tearDownClass(cls):
+        os.remove(test_graph_file)
+
     def test_otp_2_igraph_import(self):
-        result = convert_otp_graph_to_igraph(
+        graph = convert_otp_graph_to_igraph(
             node_csv_file = 'data/test_nodes.csv',
             edge_csv_file = 'data/test_edges.csv',
             hma_poly_file = 'data/HMA.geojson',
-            igraph_out_file = '',
+            igraph_out_file = test_graph_file,
             b_export_otp_data_to_gpkg = False,
             b_export_decomposed_igraphs_to_gpkg = False,
             b_export_final_graph_to_gpkg = False,
@@ -52,7 +60,22 @@ class TestOtp2IgraphImport(unittest.TestCase):
             debug_igraph_gpkg = None,
             log = Logger()
         )
-        self.assertEqual(3702, result['edge_count'])
+        self.assertEqual(graph.ecount(), 3702)
+        self.assertEqual(graph.vcount(), 1328)
+    
+    def test_read_igraph(self):
+        graph = ig_utils.read_graphml(test_graph_file, log=Logger(printing=True))
+        self.assertEqual(graph.ecount(), 3702)
+        self.assertEqual(graph.vcount(), 1328)
+        attr_names = list(graph.es[0].attributes().keys())
+        for attr in attr_names:
+            self.assertIn(attr, [e.value for e in Edge])
+        for e in graph.es:
+            attrs = e.attributes()
+            self.assertIsInstance(attrs[Edge.id_ig.value], str)
+            self.assertIsInstance(attrs[Edge.id_otp.value], str)
+            self.assertIsInstance(attrs[Edge.length.value], float)
+            self.assertIsInstance(attrs[Edge.is_no_thru_traffic.value], bool)
 
 if __name__ == '__main__':
     unittest.main()
