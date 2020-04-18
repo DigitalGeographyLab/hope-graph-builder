@@ -1,7 +1,10 @@
 import enum
+import ast
+from shapely import wkt
+
+version = 1.0
 
 class Node(enum.Enum):
-   version = 1.0
    id_ig = 'ii'
    id_otp = 'io'
    name_otp = 'no'
@@ -12,7 +15,6 @@ class Node(enum.Enum):
    traffic_light = 'tl'
 
 class Edge(enum.Enum):
-   version = 1.0
    id_ig = 'ii'
    id_otp = 'io'
    name_otp = 'no'
@@ -28,3 +30,43 @@ class Edge(enum.Enum):
    traversable_walking = 'b_tw'
    traversable_biking = 'b_tb'
    bike_safety_factor = 'bsf'
+
+def to_int(value):
+    return int(value)
+def to_float(value):
+    return float(value)
+def to_geom(value):
+    return wkt.loads(value)
+def to_bool(value):
+   return ast.literal_eval(value)
+def no_conversion(value):
+    return value
+
+edge_attr_converters = {
+    Edge.id_ig: no_conversion,
+    Edge.id_otp: no_conversion,
+    Edge.name_otp: no_conversion,
+    Edge.geometry: to_geom,
+    Edge.geom_wgs: to_geom,
+    Edge.length: to_float,
+    Edge.edge_class: no_conversion,
+    Edge.street_class: no_conversion,
+    Edge.is_stairs: to_bool,
+    Edge.is_no_thru_traffic: to_bool,
+    Edge.allows_walking: to_bool,
+    Edge.allows_biking: to_bool,
+    Edge.traversable_walking: to_bool,
+    Edge.traversable_biking: to_bool,
+    Edge.bike_safety_factor: to_float,
+}
+
+node_attr_converters = {
+    Node.id_ig: no_conversion,
+    Node.id_otp: no_conversion,
+    Node.name_otp: no_conversion,
+    Node.geometry: to_geom,
+    Node.geom_wgs: to_geom,
+    Node.traversable_walking: to_bool,
+    Node.traversable_biking: to_bool,
+    Node.traffic_light: to_bool,
+}
