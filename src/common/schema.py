@@ -31,6 +31,9 @@ class Edge(enum.Enum):
    traversable_biking = 'b_tb'
    bike_safety_factor = 'bsf'
 
+
+def to_str(value):
+    return str(value)
 def to_int(value):
     return int(value)
 def to_float(value):
@@ -39,18 +42,16 @@ def to_geom(value):
     return wkt.loads(value)
 def to_bool(value):
    return ast.literal_eval(value)
-def no_conversion(value):
-    return value
 
 edge_attr_converters = {
-    Edge.id_ig: no_conversion,
-    Edge.id_otp: no_conversion,
-    Edge.name_otp: no_conversion,
+    Edge.id_ig: to_int,
+    Edge.id_otp: to_str,
+    Edge.name_otp: to_str,
     Edge.geometry: to_geom,
     Edge.geom_wgs: to_geom,
     Edge.length: to_float,
-    Edge.edge_class: no_conversion,
-    Edge.street_class: no_conversion,
+    Edge.edge_class: to_str,
+    Edge.street_class: to_str,
     Edge.is_stairs: to_bool,
     Edge.is_no_thru_traffic: to_bool,
     Edge.allows_walking: to_bool,
@@ -61,9 +62,9 @@ edge_attr_converters = {
 }
 
 node_attr_converters = {
-    Node.id_ig: no_conversion,
-    Node.id_otp: no_conversion,
-    Node.name_otp: no_conversion,
+    Node.id_ig: to_int,
+    Node.id_otp: to_str,
+    Node.name_otp: to_str,
     Node.geometry: to_geom,
     Node.geom_wgs: to_geom,
     Node.traversable_walking: to_bool,

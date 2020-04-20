@@ -4,7 +4,7 @@ import geopandas as gpd
 import igraph as ig
 from igraph import Graph
 from fiona.crs import from_epsg
-from common.constants import Node, Edge, edge_attr_converters, node_attr_converters
+from common.schema import Node, Edge, edge_attr_converters, node_attr_converters
 from common.logger import Logger
 
 def get_edge_dicts(G: Graph, attrs: List[Enum] = [Edge.geometry]) -> list:
