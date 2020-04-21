@@ -1,6 +1,6 @@
 # hope-graph-tools
 
-This repository contains utilities for importing and processing street network graphs exported from OpenTripPlanner. The graphs will be used at least by [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server). 
+This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs exported from OpenTripPlanner. The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking an cycling that suggests routes with less traffic noise and air pollution. Hence, functionality for spatially joining environmental pollutant data to street network graphs is also work in progress. 
 
 ## Features
 * Import graph data to igraph from [CSV files exported by OTP](https://github.com/DigitalGeographyLab/OpenTripPlanner/pull/1)<sup>[1](src/otp2igraph_import/otp2igraph_import.py)</sup>
