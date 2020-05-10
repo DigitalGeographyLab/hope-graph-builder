@@ -3,9 +3,11 @@ name: graph-tools
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3
   - pylint
   - pytest
+  - owslib
+  - requests
   - jupyterlab
   - apscheduler
   - geopandas

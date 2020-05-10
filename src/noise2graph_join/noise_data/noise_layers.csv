@@ -1,0 +1,6 @@
+source,data_type,name,noise_type,noise_model,export_name
+hel,wfs,Meluselvitys_2017_alue_11_tieliikenne_L_den,road,L_den,hel_road
+hel,wfs,Meluselvitys_2017_alue_13_maantiet_L_den,hway,L_den,hel_hway
+hel,wfs,Meluselvitys_2017_alue_15_raitioliikenne_L_den,tram,L_den,hel_tram
+hel,wfs,Meluselvitys_2017_alue_17_metro_L_den,metro,L_den,hel_metro
+hel,wfs,Meluselvitys_2017_alue_19_rautatiet_L_den,train,L_den,hel_train
