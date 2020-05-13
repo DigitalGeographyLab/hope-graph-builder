@@ -1,10 +1,14 @@
 import sys
 sys.path.append('..')
+import os
 import traceback
+from pyproj import CRS
 import geopandas as gpd
 from requests import Request
 from owslib.wfs import WebFeatureService
 from common.logger import Logger
+import common.geometry as geom_utils
+import schema as S
 import pandas as pd
 import geopandas as gpd
 
@@ -19,18 +23,41 @@ def get_wfs_feature(url: str, layer: str, version: str='1.0.0', request: str='Ge
     q = Request('GET', url, params=params).prepare().url
     return gpd.read_file(q)
 
+def explode_multipolygons_to_polygons(log: Logger, polygon_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    row_accumulator = []
+    def explode_multipolygons(row):
+        if (row['geometry'].type == 'MultiPolygon'):
+            for geom in row['geometry'].geoms:
+                new_row = row.to_dict()
+                new_row['geometry'] = geom
+                row_accumulator.append(new_row)
+        else:
+            row_accumulator.append(row.to_dict())
+
+    polygon_gdf.apply(explode_multipolygons, axis=1)
+    return gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))
+
+def filter_out_features_outside_mask(log: Logger, gdf, mask_poly):
+    gdf['inside'] = [True if mask_poly.intersects(geom.boundary) else False for geom in gdf['geometry']]
+    filtered = gdf[gdf['inside'] == True]
+    log.info(f'Filtered out {len(gdf)-len(filtered)} rows outside the mask of total {len(gdf)} rows')
+    return filtered
+
 def get_noise_data(
-    log: Logger=Logger(printing=True),
-    hel_wfs_download: bool=True,
-    hel_process: bool=True,
-    syke_process: bool=True,
-    noise_layer_info_csv: str=None,
-    raw_data_gpkg: str=None,
-    wfs_hki_url: str=None,
+    log: Logger = Logger(printing=True),
+    hel_wfs_download: bool = True,
+    hel_process: bool = True,
+    syke_process: bool = True,
+    syke_data_path: str = None,
+    mask_poly_file: str = None,
+    noise_layer_info_csv: str = None,
+    raw_data_gpkg: str = None,
+    processed_data_gpkg: str = None,
+    wfs_hki_url: str = None,
     ):
     
-    if (raw_data_gpkg == None):
-        raise ValueError('Argument raw_data_gpkg must be specified')
+    if (None in [raw_data_gpkg, processed_data_gpkg]):
+        raise ValueError('Arguments raw_data_gpkg and processed_data_gpkg must be specified')
     
     try:
         noise_layer_info = pd.read_csv(noise_layer_info_csv).to_dict('records')
@@ -38,8 +65,17 @@ def get_noise_data(
         log.error('Missing or invalid argument noise_layer_info_csv')
         log.error(traceback.format_exc())
 
+    if os.path.exists(processed_data_gpkg):
+        log.info(f'Removing previously processed data in {processed_data_gpkg}')
+        try:
+            os.remove(processed_data_gpkg)
+        except Exception:
+            log.error('Error in removing data')
+
+    mask_poly = geom_utils.project_geom(gpd.read_file(mask_poly_file)['geometry'][0]).buffer(500)
+
     if (hel_wfs_download == True):
-        log.info('Starting Helsinki noise data download from WFS')
+        log.info('Starting to download noise data from Helsinki (WFS)')
         log.info(f'Initializing WFS connection to {wfs_hki_url}')
         wfs_hki = WebFeatureService(url=wfs_hki_url)
         log.info(f'Initialized WFS connection with name: {wfs_hki.identification.title} and version: {wfs_hki.version}')
@@ -55,19 +91,43 @@ def get_noise_data(
                 except Exception:
                     log.error(traceback.format_exc())
 
-        log.info('Helsinki noise data downloaded from WFS')
+        log.info('Noise data from Helsinki downloaded (WFS)')
     else:
         log.info('Skipping noise data download from Helsinki WFS')
-        
+
+    log.info('Starting to process noise data')
+    for layer in noise_layer_info:
+        read_data = False
+        if (layer['source'] == 'hel' and hel_process == True):
+            log.info(f'Processing layer {layer["name"]} ({layer["source"]})')
+            gdf = gpd.read_file(raw_data_gpkg, layer=layer['export_name'])
+            gdf = filter_out_features_outside_mask(log, gdf, mask_poly)
+            read_data = True
+        if (layer['source'] == 'syke' and syke_process == True):
+            log.info(f'Processing layer {layer["name"]} ({layer["source"]})')
+            gdf = gpd.read_file(syke_data_path + layer['name'])
+            gdf = filter_out_features_outside_mask(log, gdf, geom_utils.project_geom(mask_poly, geom_epsg=3879, to_epsg=3047))
+            gdf = gdf.to_crs(epsg=3879)
+            # extract db low from strings like '55-60' and '>70'
+            gdf[layer['noise_attr']] = [int(db[-2:]) if (len(db) == 3) else int(db[:2]) for db in gdf[layer['noise_attr']]]
+            read_data = True
+        if (read_data == True):
+            gdf = explode_multipolygons_to_polygons(log, gdf)
+            gdf = gdf.rename(columns={ layer['noise_attr']: S.Data.db_low.value })
+            gdf[['geometry', S.Data.db_low.value]].to_file(processed_data_gpkg, layer=layer['export_name'], driver='GPKG')
+
     log.info('All data processed')
 
 if (__name__ == '__main__'):
     get_noise_data(
         log=Logger(printing=True, log_file='get_noise_data.log', level='info'),
-        hel_wfs_download=True,
-        hel_process=True,
-        syke_process=True,
-        noise_layer_info_csv='noise_data/noise_layers.csv',
-        raw_data_gpkg='noise_data/noise_data_raw.gpkg',
-        wfs_hki_url='https://kartta.hel.fi/ws/geoserver/avoindata/wfs',
+        hel_wfs_download = False,
+        hel_process = True,
+        syke_process = True,
+        syke_data_path = 'noise_data/syke/EUMeluselvitykset2017/',
+        mask_poly_file = 'extent_data/HMA.geojson',
+        noise_layer_info_csv = 'noise_data/noise_layers.csv',
+        raw_data_gpkg = 'noise_data/noise_data_raw.gpkg',
+        processed_data_gpkg = 'noise_data/noise_data_processed.gpkg',
+        wfs_hki_url = 'https://kartta.hel.fi/ws/geoserver/avoindata/wfs',
     )
