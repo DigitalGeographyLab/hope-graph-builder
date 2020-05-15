@@ -54,13 +54,13 @@ def get_noise_data(
     process_syke: bool = False,
     mask_poly_file: str = None,
     noise_layer_info_csv: str = None,
-    raw_data_gpkg: str = None,
+    noise_data_hel_gpkg: str = None,
     processed_data_gpkg: str = None,
     wfs_hki_url: str = None,
     ):
     
-    if (None in [raw_data_gpkg, processed_data_gpkg]):
-        raise ValueError('Arguments raw_data_gpkg and processed_data_gpkg must be specified')
+    if (None in [noise_data_hel_gpkg, processed_data_gpkg]):
+        raise ValueError('Arguments noise_data_hel_gpkg and processed_data_gpkg must be specified')
     
     try:
         noise_layer_info = pd.read_csv(noise_layer_info_csv).to_dict('records')
@@ -89,7 +89,7 @@ def get_noise_data(
                 try:
                     log.info(f'Downloading WFS layer from {wfs_hki.identification.title}: {layer["name"]}')
                     noise_features = get_wfs_feature(wfs_hki_url, layer['name'])
-                    noise_features.to_file(raw_data_gpkg, layer=layer['export_name'], driver='GPKG')
+                    noise_features.to_file(noise_data_hel_gpkg, layer=layer['export_name'], driver='GPKG')
                     log.info(f'Exported features to file: {layer["export_name"]}')
                 except Exception:
                     log.error(traceback.format_exc())
@@ -103,7 +103,7 @@ def get_noise_data(
         read_data = False
         if (layer[L.source.name] == 'hel' and process_hel == True):
             log.info(f'Processing layer from {layer["source"]}: {layer["name"]}')
-            gdf = gpd.read_file(raw_data_gpkg, layer=layer['export_name'])
+            gdf = gpd.read_file(noise_data_hel_gpkg, layer=layer['export_name'])
             read_data = True
         if (layer[L.source.name] == 'espoo' and process_espoo == True):
             log.info(f'Processing layer from {layer["source"]}: {layer["name"]}')
@@ -126,14 +126,14 @@ def get_noise_data(
 
 if (__name__ == '__main__'):
     get_noise_data(
-        log=Logger(printing=True, log_file='get_noise_data.log', level='info'),
+        log=Logger(printing=True, log_file='noise_data_preprocessing.log', level='info'),
         hel_wfs_download = False,
         process_hel = True,
         process_espoo = True,
         process_syke = True,
         mask_poly_file = 'extent_data/HMA.geojson',
         noise_layer_info_csv = 'noise_data/noise_layers.csv',
-        raw_data_gpkg = 'noise_data/noise_data_raw.gpkg',
+        noise_data_hel_gpkg = 'noise_data/noise_data_raw.gpkg',
         processed_data_gpkg = 'noise_data/noise_data_processed.gpkg',
         wfs_hki_url = 'https://kartta.hel.fi/ws/geoserver/avoindata/wfs',
     )

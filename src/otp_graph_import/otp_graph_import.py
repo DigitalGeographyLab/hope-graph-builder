@@ -232,7 +232,7 @@ def convert_otp_graph_to_igraph(
 
 
 if (__name__ == '__main__'):
-    log = Logger(printing=True, log_file='otp2igraph_import.log', level='info')
+    log = Logger(printing=True, log_file='otp_graph_import.log', level='info')
     graph = convert_otp_graph_to_igraph(
         node_csv_file = 'otp_graph_data/test_nodes.csv',
         edge_csv_file = 'otp_graph_data/test_edges.csv',

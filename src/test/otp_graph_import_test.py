@@ -10,7 +10,7 @@ from fiona.crs import from_epsg
 from common.schema import Node, Edge
 from common.logger import Logger
 import common.igraph as ig_utils
-from otp2igraph_import.otp2igraph_import import convert_otp_graph_to_igraph
+from otp_graph_import.otp_graph_import import convert_otp_graph_to_igraph
 
 class TestCreateTestOtpGraphData(unittest.TestCase):
 
