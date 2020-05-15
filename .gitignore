@@ -141,3 +141,4 @@ src/otp2igraph_import/debug/
 src/noise2graph_join/noise_data/noise_data_raw.gpkg*
 src/noise2graph_join/noise_data/syke/EUMeluselvitykset2017/
 src/noise2graph_join/noise_data/noise_data_processed.gpkg
+src/noise2graph_join/noise_data/espoo/

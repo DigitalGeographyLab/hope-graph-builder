@@ -7,8 +7,8 @@ import geopandas as gpd
 from requests import Request
 from owslib.wfs import WebFeatureService
 from common.logger import Logger
+from noise_data.schema import Layer as L
 import common.geometry as geom_utils
-import schema as S
 import pandas as pd
 import geopandas as gpd
 
@@ -35,20 +35,23 @@ def explode_multipolygons_to_polygons(log: Logger, polygon_gdf: gpd.GeoDataFrame
             row_accumulator.append(row.to_dict())
 
     polygon_gdf.apply(explode_multipolygons, axis=1)
-    return gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))
+    gdf = gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))
+    if (len(polygon_gdf) != len(gdf)):
+        log.debug(f'Exploaded {len(gdf)} polygons from {len(polygon_gdf)} multipolygons')
+    return gdf
 
 def filter_out_features_outside_mask(log: Logger, gdf, mask_poly):
     gdf['inside'] = [True if mask_poly.intersects(geom.boundary) else False for geom in gdf['geometry']]
     filtered = gdf[gdf['inside'] == True]
-    log.info(f'Filtered out {len(gdf)-len(filtered)} rows outside the mask of total {len(gdf)} rows')
+    log.debug(f'Filtered out {len(gdf)-len(filtered)} rows outside the mask of total {len(gdf)} rows')
     return filtered
 
 def get_noise_data(
     log: Logger = Logger(printing=True),
-    hel_wfs_download: bool = True,
-    hel_process: bool = True,
-    syke_process: bool = True,
-    syke_data_path: str = None,
+    hel_wfs_download: bool = False,
+    process_hel: bool = False,
+    process_espoo: bool = False,
+    process_syke: bool = False,
     mask_poly_file: str = None,
     noise_layer_info_csv: str = None,
     raw_data_gpkg: str = None,
@@ -82,7 +85,7 @@ def get_noise_data(
         log.info(f'Found available methods: {[operation.name for operation in wfs_hki.operations]}')
 
         for layer in noise_layer_info:
-            if (layer['source'] == 'hel'):
+            if (layer[L.source.name] == 'hel'):
                 try:
                     log.info(f'Downloading WFS layer from {wfs_hki.identification.title}: {layer["name"]}')
                     noise_features = get_wfs_feature(wfs_hki_url, layer['name'])
@@ -98,14 +101,17 @@ def get_noise_data(
     log.info('Starting to process noise data')
     for layer in noise_layer_info:
         read_data = False
-        if (layer['source'] == 'hel' and hel_process == True):
-            log.info(f'Processing layer {layer["name"]} ({layer["source"]})')
+        if (layer[L.source.name] == 'hel' and process_hel == True):
+            log.info(f'Processing layer from {layer["source"]}: {layer["name"]}')
             gdf = gpd.read_file(raw_data_gpkg, layer=layer['export_name'])
-            gdf = filter_out_features_outside_mask(log, gdf, mask_poly)
             read_data = True
-        if (layer['source'] == 'syke' and syke_process == True):
-            log.info(f'Processing layer {layer["name"]} ({layer["source"]})')
-            gdf = gpd.read_file(syke_data_path + layer['name'])
+        if (layer[L.source.name] == 'espoo' and process_espoo == True):
+            log.info(f'Processing layer from {layer["source"]}: {layer["name"]}')
+            gdf = gpd.read_file(layer['name'])
+            read_data = True
+        if (layer[L.source.name] == 'syke' and process_syke == True):
+            log.info(f'Processing layer from {layer["source"]}: {layer["name"]}')
+            gdf = gpd.read_file(layer['name'])
             gdf = filter_out_features_outside_mask(log, gdf, geom_utils.project_geom(mask_poly, geom_epsg=3879, to_epsg=3047))
             gdf = gdf.to_crs(epsg=3879)
             # extract db low from strings like '55-60' and '>70'
@@ -113,8 +119,8 @@ def get_noise_data(
             read_data = True
         if (read_data == True):
             gdf = explode_multipolygons_to_polygons(log, gdf)
-            gdf = gdf.rename(columns={ layer['noise_attr']: S.Data.db_low.value })
-            gdf[['geometry', S.Data.db_low.value]].to_file(processed_data_gpkg, layer=layer['export_name'], driver='GPKG')
+            gdf = gdf.rename(columns={ layer['noise_attr']: L.db_low.name })
+            gdf[['geometry', L.db_low.name]].to_file(processed_data_gpkg, layer=layer['export_name'], driver='GPKG')
 
     log.info('All data processed')
 
@@ -122,9 +128,9 @@ if (__name__ == '__main__'):
     get_noise_data(
         log=Logger(printing=True, log_file='get_noise_data.log', level='info'),
         hel_wfs_download = False,
-        hel_process = True,
-        syke_process = True,
-        syke_data_path = 'noise_data/syke/EUMeluselvitykset2017/',
+        process_hel = True,
+        process_espoo = True,
+        process_syke = True,
         mask_poly_file = 'extent_data/HMA.geojson',
         noise_layer_info_csv = 'noise_data/noise_layers.csv',
         raw_data_gpkg = 'noise_data/noise_data_raw.gpkg',
