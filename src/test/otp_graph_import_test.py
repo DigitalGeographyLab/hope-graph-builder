@@ -6,7 +6,7 @@ from shapely.geometry import LineString, Polygon, Point, GeometryCollection
 import pandas as pd
 import geopandas as gpd
 import shapely.wkt
-from fiona.crs import from_epsg
+from pyproj import CRS
 from common.schema import Node, Edge
 from common.logger import Logger
 import common.igraph as ig_utils
@@ -25,7 +25,7 @@ class TestCreateTestOtpGraphData(unittest.TestCase):
         e = pd.read_csv('data/edges.csv', sep=';')
         self.assertEqual(len(e), 1282306)
         e[Edge.geometry.name] = [shapely.wkt.loads(geom) if isinstance(geom, str) else LineString() for geom in e[Edge.geometry.name]]
-        e = gpd.GeoDataFrame(e, geometry=Edge.geometry.name, crs=from_epsg(4326))
+        e = gpd.GeoDataFrame(e, geometry=Edge.geometry.name, crs=CRS.from_epsg(4326))
         e['in_test_area'] = [self.intersects_polygon(line, test_area) for line in e[Edge.geometry.name]]
         e_filt = e.query('in_test_area == True').copy()
         e_filt.drop(columns=['in_test_area']).to_csv('data/test_edges.csv', sep=';')
