@@ -130,9 +130,15 @@ dmypy.json
 .pyre/
 src/.vscode/settings.json
 
+# IDE
+settings.json
+launch.json
+
 # data
 otp_graph_data/
 docs/python-igraph.pdf
-src/.vscode/launch.json
-src/otp2igraph_import/.vscode/settings.json
-src/otp2igraph_import/debug/
+src/otp_graph_import/debug/
+src/noise_data_preprocessing/noise_data/noise_data_raw.gpkg*
+src/noise_data_preprocessing/noise_data/syke/EUMeluselvitykset2017/
+src/noise_data_preprocessing/noise_data/noise_data_processed.gpkg
+src/noise_data_preprocessing/noise_data/espoo/

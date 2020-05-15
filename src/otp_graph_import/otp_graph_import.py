@@ -9,7 +9,7 @@ import pandas as pd
 import geopandas as gpd
 import igraph as ig
 import shapely.wkt
-from fiona.crs import from_epsg
+from pyproj import CRS
 from common.schema import Node, Edge
 import common.igraph as ig_utils
 import common.geometry as geom_utils
@@ -38,7 +38,7 @@ def convert_otp_graph_to_igraph(
     log.info('creating node gdf')
     n[Node.geometry.name] = [shapely.wkt.loads(geom) if isinstance(geom, str) else Point() for geom in n[Node.geometry.name]]
     n[Node.geom_wgs.name] = n[Node.geometry.name]
-    n = gpd.GeoDataFrame(n, geometry=Node.geometry.name, crs=from_epsg(4326))
+    n = gpd.GeoDataFrame(n, geometry=Node.geometry.name, crs=CRS.from_epsg(4326))
     log.info('reprojecting nodes to etrs')
     n = n.to_crs(epsg=3879)
     log.debug(f'nodes head: {n.head()}')
@@ -51,7 +51,7 @@ def convert_otp_graph_to_igraph(
     log.info('creating edge gdf')
     e[Edge.geometry.name] = [shapely.wkt.loads(geom) if isinstance(geom, str) else LineString() for geom in e[Edge.geometry.name]]
     e[Edge.geom_wgs.name] = e[Edge.geometry.name]
-    e = gpd.GeoDataFrame(e, geometry=Edge.geometry.name, crs=from_epsg(4326))
+    e = gpd.GeoDataFrame(e, geometry=Edge.geometry.name, crs=CRS.from_epsg(4326))
     log.info('reprojecting edges to etrs')
     e = e.to_crs(epsg=3879)
     log.debug(f'edges head: {e.head()}')
@@ -178,13 +178,13 @@ def convert_otp_graph_to_igraph(
     if (b_export_decomposed_igraphs_to_gpkg == True):
         log.info('exporting subgraphs to gpkg')
         # graphs with <= 15 edges
-        small_graph_edges_gdf = gpd.GeoDataFrame(small_graph_edges, crs=from_epsg(3879))
+        small_graph_edges_gdf = gpd.GeoDataFrame(small_graph_edges, crs=CRS.from_epsg(3879))
         small_graph_edges_gdf.to_file(debug_igraph_gpkg, layer='small_graph_edges', driver='GPKG')
         # graphs with  15–500 edges
-        medium_graph_edges_gdf = gpd.GeoDataFrame(medium_graph_edges, crs=from_epsg(3879))
+        medium_graph_edges_gdf = gpd.GeoDataFrame(medium_graph_edges, crs=CRS.from_epsg(3879))
         medium_graph_edges_gdf.to_file(debug_igraph_gpkg, layer='medium_graph_edges', driver='GPKG')
         # graphs with > 500 edges
-        big_graph_edges_gdf = gpd.GeoDataFrame(big_graph_edges, crs=from_epsg(3879))
+        big_graph_edges_gdf = gpd.GeoDataFrame(big_graph_edges, crs=CRS.from_epsg(3879))
         big_graph_edges_gdf.to_file(debug_igraph_gpkg, layer='big_graph_edges', driver='GPKG')
         log.info(f'graphs exported')
 
@@ -225,14 +225,14 @@ def convert_otp_graph_to_igraph(
         e_gdf.to_file(debug_igraph_gpkg, layer='final_graph_edges', driver='GPKG')
         n_gdf.to_file(debug_igraph_gpkg, layer='final_graph_nodes', driver='GPKG')
 
-    if (igraph_out_file is not None and igraph_out_file is not ''):
+    if (igraph_out_file != None and igraph_out_file != ''):
         ig_utils.export_to_graphml(G, igraph_out_file)
 
     return G
 
 
 if (__name__ == '__main__'):
-    log = Logger(printing=True, log_file='otp2igraph_import.log', level='info')
+    log = Logger(printing=True, log_file='otp_graph_import.log', level='info')
     graph = convert_otp_graph_to_igraph(
         node_csv_file = 'otp_graph_data/test_nodes.csv',
         edge_csv_file = 'otp_graph_data/test_edges.csv',

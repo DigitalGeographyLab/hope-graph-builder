@@ -3,7 +3,7 @@ from typing import List, Set, Dict, Tuple
 import geopandas as gpd
 import igraph as ig
 from igraph import Graph
-from fiona.crs import from_epsg
+from pyproj import CRS
 from common.schema import Node, Edge, edge_attr_converters, node_attr_converters
 from common.logger import Logger
 
@@ -38,7 +38,7 @@ def get_edge_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attr
                 edge_dict[attr] = getattr(edge, attr)
         edge_dicts.append(edge_dict)
 
-    return gpd.GeoDataFrame(edge_dicts, index=ids, crs=from_epsg(epsg))
+    return gpd.GeoDataFrame(edge_dicts, index=ids, crs=CRS.from_epsg(epsg))
 
 def get_node_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Node.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
     """Returns nodes of a graph as pandas GeoDataFrame. 
@@ -58,7 +58,7 @@ def get_node_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attr
                 node_dict[attr] = getattr(node, attr)
         node_dicts.append(node_dict)
 
-    return gpd.GeoDataFrame(node_dicts, index=ids, crs=from_epsg(epsg))
+    return gpd.GeoDataFrame(node_dicts, index=ids, crs=CRS.from_epsg(epsg))
 
 def read_graphml(graph_file: str, log: Logger = None) -> ig.Graph:
     G = ig.Graph()
