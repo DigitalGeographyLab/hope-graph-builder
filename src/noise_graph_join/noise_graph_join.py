@@ -1,6 +1,8 @@
 import sys
 sys.path.append('..')
 import os
+import fiona
+import geopandas as gpd
 from common.logger import Logger
 import utils as utils
 import common.igraph as ig_utils
@@ -23,9 +25,19 @@ def noise_graph_join(log: Logger, b_debug: bool, graph_file: str, noise_gpkg: st
         gdf.drop(columns=['sampling_points']).to_file('debug/noise_join_debug.gpkg', layer='graph_edges', driver='GPKG')
         uniq_point_gdf.to_file('debug/noise_join_debug.gpkg', layer='sampling_points', driver='GPKG')
 
+    point_noises = uniq_point_gdf.copy()
+    for layername in fiona.listlayers(noise_gpkg):
+        log.debug(f'joining noise layer: {layername}')
+        noise_gdf = gpd.read_file(noise_gpkg, layer=layername)
+        noise_gdf = noise_gdf.rename(columns={'db_low':layername})
+        point_noises = gpd.sjoin(point_noises, noise_gdf, how='left', op='within').drop(['index_right'], axis=1)
+        
+    if (b_debug == True):
+        point_noises.to_file('debug/noise_join_debug.gpkg', layer='sampling_points_noise', driver='GPKG')
+
 if (__name__ == '__main__'):
     noise_graph_join(
-        log = Logger(printing=True, log_file='noise_graph_join.log', level='info'),
+        log = Logger(printing=True, log_file='noise_graph_join.log', level='debug'),
         b_debug = True,
         graph_file = 'data/test_graph.graphml',
         noise_gpkg = 'data/noise_data_processed.gpkg',
