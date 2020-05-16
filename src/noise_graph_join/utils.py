@@ -1,7 +1,10 @@
+import sys
+sys.path.append('..')
 from shapely.geometry import LineString, Point, GeometryCollection
 from typing import List, Set, Dict, Tuple
 from pyproj import CRS
 import geopandas as gpd
+from common.logger import Logger
 
 def get_point_sampling_distances(sample_count: int):
     """Calculates set of distances for sample points as relative shares. 
@@ -44,4 +47,12 @@ def explode_sampling_point_gdf(gdf):
     
     gdf.apply(explode_by_sampling_points, axis=1)
     point_gdf = gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))
+    return point_gdf
+
+def add_unique_geom_id(point_gdf: gpd.GeoDataFrame, log: Logger=None):
+    point_gdf['xy_id'] = [f'{str(round(geom.x, 1))}_{str(round(geom.y, 1))}' for geom in point_gdf['geometry']]
+    unique_count = point_gdf['xy_id'].nunique()
+    unique_share = round(100 * unique_count/len(point_gdf.index), 2)
+    if (log != None):
+        log.info(f'found {unique_count} unique sampling points ({unique_share} %)')
     return point_gdf
