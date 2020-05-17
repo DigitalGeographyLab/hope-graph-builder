@@ -64,3 +64,19 @@ def print_none_noise_stats(log: Logger, gdf: gpd.GeoDataFrame) -> None:
     missing_count = len(gdf[gdf['missing_noise'] == True])
     missing_ratio = round(100 * missing_count/len(gdf.index), 2)
     log.info(f'found {missing_count} ({missing_ratio} %) sampling points with missing values')
+
+def add_inside_nodata_zone_column(gdf, nodata_zone, log: Logger=None):
+    joined = gpd.sjoin(gdf, nodata_zone, how='left', op='within').drop(['index_right'], axis=1)
+    if (log != None):
+        nodata_zone_count = len(joined[joined['nodata_zone'] == 1])
+        nodata_zone_share = round(100 * nodata_zone_count/len(gdf.index), 2)
+        log.info(f'found {nodata_zone_count} ({nodata_zone_share} %) sampling points inside potential nodata zone')
+    return joined
+
+def get_sampling_points_missing_noise_data(gdf, log: Logger=None):
+    missing_noise_gdf = gdf[(gdf['nodata_zone'] == 1) & (gdf['missing_noise'] == True)].copy()
+    if (log != None):
+        missing_count = len(missing_noise_gdf)
+        missing_share = round(100 * missing_count/len(gdf.index), 2)
+        log.info(f'found {missing_count} ({missing_share} %) sampling points for which noise values need to be interpolated')
+    return missing_noise_gdf

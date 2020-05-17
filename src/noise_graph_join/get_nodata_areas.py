@@ -36,8 +36,8 @@ def get_nodata_zones(wfs_hsy_url: str, layer: str, hma_mask:str, export_gpkg: st
     dissolved_buffer: Polygon = unary_union(boundaries)
     intersected_buffer = dissolved_buffer.intersection(mask_poly)
     
-    boundary_gdf = gpd.GeoDataFrame(geometry=[intersected_buffer], crs=CRS.from_epsg(3879))
-    boundary_gdf.to_file(export_gpkg, layer='municipality_boundaries', driver='GPKG')
+    boundary_gdf = gpd.GeoDataFrame(data=[{'nodata_zone': 1}], geometry=[intersected_buffer], crs=CRS.from_epsg(3879))
+    boundary_gdf.to_file(export_gpkg, layer='municipal_boundaries', driver='GPKG')
 
 if (__name__ == '__main__'):
     get_nodata_zones(
