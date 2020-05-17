@@ -25,13 +25,18 @@ def noise_graph_join(log: Logger, b_debug: bool, graph_file: str, noise_gpkg: st
         gdf.drop(columns=['sampling_points']).to_file('debug/noise_join_debug.gpkg', layer='graph_edges', driver='GPKG')
         uniq_point_gdf.to_file('debug/noise_join_debug.gpkg', layer='sampling_points', driver='GPKG')
 
+    # spatially join noise values to sampling points from a set of noise surface layers
+    noise_layers = [layer for layer in fiona.listlayers(noise_gpkg)]
     point_noises = uniq_point_gdf.copy()
-    for layername in fiona.listlayers(noise_gpkg):
-        log.debug(f'joining noise layer: {layername}')
-        noise_gdf = gpd.read_file(noise_gpkg, layer=layername)
-        noise_gdf = noise_gdf.rename(columns={'db_low':layername})
+    for layer in noise_layers:
+        log.debug(f'joining noise layer: {layer}')
+        noise_gdf = gpd.read_file(noise_gpkg, layer=layer)
+        noise_gdf = noise_gdf.rename(columns={'db_low':layer})
         point_noises = gpd.sjoin(point_noises, noise_gdf, how='left', op='within').drop(['index_right'], axis=1)
-        
+    
+    point_noises['missing_noise'] = point_noises.apply(lambda row: utils.all_noise_values_none(row, noise_layers), axis=1)
+    utils.print_none_noise_stats(log, point_noises)
+
     if (b_debug == True):
         point_noises.to_file('debug/noise_join_debug.gpkg', layer='sampling_points_noise', driver='GPKG')
 
