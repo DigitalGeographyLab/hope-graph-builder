@@ -31,7 +31,8 @@ def add_sampling_points_to_gdf(gdf, sampling_interval: int) -> gpd.GeoDataFrame:
     return gdf
 
 def explode_sampling_point_gdf(gdf) -> gpd.GeoDataFrame:
-    """Exploads new rows from dataframe by lists of sampling points in column 'sampling_points'.
+    """Exploads new rows from dataframe by lists of sampling points in column 'sampling_points'. Also adds new column sample_len that
+    it is calculated simply by dividing the length of the edge by the number of sampling points for it.
     """
     row_accumulator = []
     def explode_by_sampling_points(row):
@@ -60,12 +61,18 @@ def add_unique_geom_id(point_gdf: gpd.GeoDataFrame, log: Logger=None) -> gpd.Geo
 def all_noise_values_none(row, noise_layers: list) -> bool:
     return all([np.isnan(row[layer]) for layer in noise_layers])
 
-def print_none_noise_stats(log: Logger, gdf: gpd.GeoDataFrame) -> None:
-    missing_count = len(gdf[gdf['missing_noise'] == True])
+def log_none_noise_stats(log: Logger, gdf: gpd.GeoDataFrame) -> None:
+    missing_count = len(gdf[gdf['no_noise_values'] == True])
     missing_ratio = round(100 * missing_count/len(gdf.index), 2)
-    log.info(f'found {missing_count} ({missing_ratio} %) sampling points with missing values')
+    log.info(f'found {missing_count} ({missing_ratio} %) sampling points without noise values')
 
-def add_inside_nodata_zone_column(gdf, nodata_zone, log: Logger=None):
+def add_inside_nodata_zone_column(gdf, nodata_zone: gpd.GeoDataFrame, log: Logger=None) -> gpd.GeoDataFrame:
+    """Adds boolean column (nodata_zone) indicating whether the points in the gdf are within the given nodata_zone polygon.
+
+    Args:
+        gdf: A GeoDataFrame object of sampling points. 
+        nodata_zone: A GeoDataFrame object with one feature in it. It must have one attribute (nodata_zone) with value 1. 
+    """
     joined = gpd.sjoin(gdf, nodata_zone, how='left', op='within').drop(['index_right'], axis=1)
     if (log != None):
         nodata_zone_count = len(joined[joined['nodata_zone'] == 1])
@@ -73,10 +80,35 @@ def add_inside_nodata_zone_column(gdf, nodata_zone, log: Logger=None):
         log.info(f'found {nodata_zone_count} ({nodata_zone_share} %) sampling points inside potential nodata zone')
     return joined
 
-def get_sampling_points_missing_noise_data(gdf, log: Logger=None):
-    missing_noise_gdf = gdf[(gdf['nodata_zone'] == 1) & (gdf['missing_noise'] == True)].copy()
+def log_missing_noise_stats(gdf, log: Logger) -> None:
+    """Returns sampling points located at possible nodata_zone and missing noise data. For these sampling points,
+    noise values need to be interpolated later. Selection is done by columns nodata_zone (=1) and no_noise_values (=True).
+    """
+    missing_noises_count = len(gdf[gdf['missing_noises'] == True])
     if (log != None):
-        missing_count = len(missing_noise_gdf)
-        missing_share = round(100 * missing_count/len(gdf.index), 2)
-        log.info(f'found {missing_count} ({missing_share} %) sampling points for which noise values need to be interpolated')
-    return missing_noise_gdf
+        missing_share = round(100 * missing_noises_count/len(gdf.index), 2)
+        log.info(f'found {missing_noises_count} ({missing_share} %) sampling points for which noise values need to be interpolated')
+
+def get_sampling_points_around(point: Point, distance: float, count: int=20) -> List[Point]:
+    """Returns a set of sampling points at specified distance around a given point.
+    """
+    buffer = point.buffer(distance)
+    boundary = buffer.boundary
+    sampling_distances = get_point_sampling_distances(count)
+    sampling_points = [boundary.interpolate(dist, normalized=True) for dist in sampling_distances]
+    return sampling_points
+
+def explode_extra_sampling_point_gdf(gdf):
+    """Explodes dataframe of sampling points by column containing alternative sampling points for each sampling points. Here this
+    is used to sample values for those sampling points that are located in small nodata zones. 
+    """
+    row_accumulator = []
+    def explode_sampling_point_rows(row):
+        for point in row['sampling_points']:
+            new_row = row.to_dict()
+            del new_row['sampling_points']
+            new_row['geometry'] = point
+            row_accumulator.append(new_row)
+
+    gdf.apply(explode_sampling_point_rows, axis=1)
+    return gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))

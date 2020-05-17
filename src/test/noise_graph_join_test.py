@@ -3,6 +3,7 @@ sys.path.append('..')
 import os
 import time
 import unittest
+import numpy as np
 import noise_graph_join.utils as utils
 import common.igraph as ig_utils
 from common.logger import Logger
@@ -49,6 +50,15 @@ class TestNoiseGraphJoinUtils(unittest.TestCase):
                 edge_sps = sps_by_edge.get_group(edge.Index)
                 sampling_length_sum = edge_sps['sample_len'].sum()            
                 self.assertAlmostEqual(sampling_length_sum, edge.geometry.length, 5)
+
+    def test_get_sampling_points_around_point(self):
+        point = Point(25501668.9, 6684943.1)
+        sps = utils.get_sampling_points_around(point, 40, count=20)
+        self.assertEqual(len(sps), 20)
+        for sp in sps:
+            self.assertAlmostEqual(sp.distance(point), 40, 1)
+        distances_between = [sp.distance(point) for point in sps]
+        self.assertAlmostEqual(np.std(distances_between), 24.812, 3)
 
 # class TestNoiseGraphJoin(unittest.TestCase):
 
