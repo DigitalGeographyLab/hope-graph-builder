@@ -1,23 +1,25 @@
 # hope-graph-tools
 
-This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs exported from OpenTripPlanner. The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking an cycling that suggests routes with less traffic noise and air pollution. Hence, functionality for spatially joining environmental pollutant data to street network graphs is also work in progress. 
+This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs exported from OpenTripPlanner. The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking and cycling that suggests routes with less traffic noise and air pollution. 
 
 ## Features
-* Import graph data to igraph from [CSV files exported by OTP](https://github.com/DigitalGeographyLab/OpenTripPlanner/pull/1)<sup>[1](src/otp_graph_import/otp_graph_import.py)</sup>
-* Remove private, unwalkable and street segments not suitable for biking from a graph<sup>[1](src/otp_graph_import/otp_graph_import.py)</sup>
-* Decompose graph and remove unconnected edges & nodes<sup>[1](src/otp_graph_import/otp_graph_import.py)</sup>
-* Create a subset of the graph for Helsinki Metropolitan Area<sup>[1](src/otp_graph_import/otp_graph_import.py)</sup>
-* Export raw and processed graph features to GeoPackages for debugging<sup>[1](src/otp_graph_import/otp_graph_import.py)</sup>
-* Set up a custom [schema](src/common/schema.py) for graph features
-* Export graph to GraphML format<sup>[2](src/common/igraph.py)</sup>
-* Preprocess noise data from different sources to common schema<sup>[3](src/noise_data_preprocessing/noise_data_preprocessing.py)</sup>
-* WIP: _Join environmental noise data to graph features to enable exposure-based routing_
+* [otp_graph_import.py](src/otp_graph_import/otp_graph_import.py)
+    * Import graph data to igraph from [CSV files exported by OTP](https://github.com/DigitalGeographyLab/OpenTripPlanner/pull/1)
+    * Remove private, unwalkable and street segments not suitable for biking from a graph
+    * Decompose graph and remove unconnected edges & nodes
+    * Create a subset of the graph for Helsinki Metropolitan Area
+    * Export raw and processed graph features to GeoPackages for debugging
+* [noise_data_preprocessing.py](src/noise_data_preprocessing/noise_data_preprocessing.py)
+    * Preprocess noise data from different sources to common schema
+* [noise_graph_join.py](src/noise_graph_join/noise_graph_join.py)
+    * Join environmental noise data to graph features to enable exposure-based routing
+    * Interpolate noise values for edges missing them
 
 ## Tech
 * Python 3.6
 * igraph
-* Shapely
 * GeoPandas
+* Shapely
 
 ## Installation
 ```
@@ -30,5 +32,6 @@ $ conda env create -f env_graph_tools.yml
 ```
 $ conda activate graph-tools
 $ cd src/test
-$ python otp2igraph_import_test.py
+$ python otp_graph_import_test.py
+$ python noise_graph_join_test.py
 ```
