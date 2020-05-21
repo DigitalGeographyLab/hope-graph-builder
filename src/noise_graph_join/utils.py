@@ -4,6 +4,7 @@ import numpy as np
 from shapely.geometry import LineString, Point, GeometryCollection
 from typing import List, Set, Dict, Tuple
 from pyproj import CRS
+import pandas as pd
 import geopandas as gpd
 from common.logger import Logger
 
@@ -113,24 +114,35 @@ def explode_extra_sampling_point_gdf(gdf):
     gdf.apply(explode_sampling_point_rows, axis=1)
     return gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))
 
-def remove_duplicate_samples(sample_gdf, sample_id: str, noise_layers: dict) -> gpd.GeoDataFrame:
-    distinct_samples = []
-    samples_by_id = sample_gdf.groupby(by=sample_id)
+def remove_duplicate_samples(sample_gdf, sample_idx: str, noise_layers: dict) -> gpd.GeoDataFrame:
+    duplicate_df = sample_gdf[sample_gdf.duplicated([sample_idx], keep=False)]
+
+    if (len(duplicate_df) == 0):
+        return sample_gdf
+    
+    deduplicated = []
+    samples_by_id = duplicate_df.groupby(by=sample_idx)
     for sample_id, samples in samples_by_id:
         # get first row as dictionary
         distinct_sample = samples[:1].to_dict('records')[0]
-        if (len(samples) == 1):
-            distinct_samples.append(distinct_sample)
-        else:
-            # use maximum noise values from overlapping (invalid) noise surfaces
-            noise_values = { name: samples[name].max() for name in noise_layers.keys() }
-            distinct_sample.update(noise_values)
-            distinct_samples.append(distinct_sample)
-    return gpd.GeoDataFrame(distinct_samples, crs=CRS.from_epsg(3879))
+        # use maximum noise values from overlapping (invalid) noise surfaces
+        noise_values = { name: samples[name].max() for name in noise_layers.keys() }
+        distinct_sample.update(noise_values)
+        deduplicated.append(distinct_sample)
+    
+    deduplicated_samples_gdf = gpd.GeoDataFrame(deduplicated, crs=CRS.from_epsg(3879))
+    
+    distinct_samples_gdf = sample_gdf.drop_duplicates([sample_idx], keep=False)
+    # order columns to match original column order
+    deduplicated_samples_gdf = deduplicated_samples_gdf[list(distinct_samples_gdf.columns)]
+
+    # concatenate distinct and deduplicated samples
+    concatenated_df = pd.concat([distinct_samples_gdf, deduplicated_samples_gdf], ignore_index=True)
+    return gpd.GeoDataFrame(concatenated_df, crs=CRS.from_epsg(3879))
 
 def sjoin_noise_values(gdf, noise_layers: dict, log: Logger=None) -> gpd.GeoDataFrame:
     sample_gdf = gdf.copy()
-    sample_gdf['sample_id'] = sample_gdf.index
+    sample_gdf['sample_idx'] = sample_gdf.index
     for name, noise_gdf in noise_layers.items():
         log.debug(f'joining noise layer [{name}] to sampling points')
         sample_gdf = gpd.sjoin(sample_gdf, noise_gdf, how='left', op='within').drop(['index_right'], axis=1)
@@ -138,7 +150,7 @@ def sjoin_noise_values(gdf, noise_layers: dict, log: Logger=None) -> gpd.GeoData
     if (len(sample_gdf.index) > len(gdf.index)):
         log.warning(f'joined multiple noise values for one or more sampling points ({len(sample_gdf.index)} != {len(gdf.index)})')
 
-    distinct_samples = remove_duplicate_samples(sample_gdf, 'sample_id', noise_layers)
+    distinct_samples = remove_duplicate_samples(sample_gdf, 'sample_idx', noise_layers)
 
     if (len(distinct_samples.index) == len(gdf.index)):
         log.info('successfully removed duplicate samples')
@@ -148,4 +160,4 @@ def sjoin_noise_values(gdf, noise_layers: dict, log: Logger=None) -> gpd.GeoData
     if (list(sample_gdf.columns).sort() != list(distinct_samples.columns).sort()):
         log.error('schema of the dataframe was altered during removing duplicate samples')
 
-    return distinct_samples.drop(columns=['sample_id'])
+    return distinct_samples.drop(columns=['sample_idx'])
