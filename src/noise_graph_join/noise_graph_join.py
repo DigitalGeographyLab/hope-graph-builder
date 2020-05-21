@@ -51,10 +51,7 @@ def noise_graph_join(
         uniq_point_gdf.to_file(debug_gpkg, layer='sampling_points', driver='GPKG')
 
     # spatially join noise values by sampling points from a set of noise surface layers
-    point_noises = uniq_point_gdf.copy()
-    for name, noise_gdf in noise_layers.items():
-        log.debug(f'joining noise layer [{name}] to sampling points')
-        point_noises = gpd.sjoin(point_noises, noise_gdf, how='left', op='within').drop(['index_right'], axis=1)
+    point_noises = utils.sjoin_noise_values(uniq_point_gdf, noise_layers, log)
     
     point_noises['no_noise_values'] = point_noises.apply(lambda row: utils.all_noise_values_none(row, noise_layers), axis=1)
     utils.log_none_noise_stats(log, point_noises)
@@ -75,10 +72,7 @@ def noise_graph_join(
         extra_sampling_points.to_file(debug_gpkg, layer='extra_sampling_points', driver='GPKG')
 
     # join noise values to extra sampling points
-    extra_sampling_point_noises = extra_sampling_points.copy()
-    for name, noise_gdf in noise_layers.items():
-        log.debug(f'joining noise layer [{name}] to additional sampling points')
-        extra_sampling_point_noises = gpd.sjoin(extra_sampling_point_noises, noise_gdf, how='left', op='within').drop(['index_right'], axis=1)
+    extra_sampling_point_noises = utils.sjoin_noise_values(extra_sampling_points, noise_layers, log)
     
     if (b_debug == True):
         extra_sampling_point_noises.to_file(debug_gpkg, layer='extra_sampling_point_noises', driver='GPKG')
@@ -89,7 +83,7 @@ def noise_graph_join(
     for xy_id, group in extra_samples_by_xy_id:
         samples = group.copy()
         samples = samples.fillna(0)
-        extra_sample = {name: samples[name].quantile(.8, interpolation='nearest') for name in noise_layers.keys()}
+        extra_sample = {name: samples[name].quantile(.7, interpolation='nearest') for name in noise_layers.keys()}
         extra_sample['xy_id'] = xy_id
         extra_noise_samples.append(extra_sample)
 
