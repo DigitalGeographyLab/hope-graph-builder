@@ -29,3 +29,6 @@ class SamplingGdf:
     n_metro = 'n_metro'
     n_tram = 'n_tram'
     n_rail = 'n_rail'
+    n_max = 'n_max'
+    n_max_adj = 'n_max_adj'
+    n_max_sources = 'n_max_sources'

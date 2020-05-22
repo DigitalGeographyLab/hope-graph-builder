@@ -32,16 +32,16 @@ def add_sampling_points_to_gdf(gdf, sampling_interval: int) -> gpd.GeoDataFrame:
     gdf[S.sampling_points] = [get_sampling_points(geom, sampling_interval) if isinstance(geom, LineString) else None for geom in gdf[S.geometry].values]
     return gdf
 
-def explode_sampling_point_gdf(gdf) -> gpd.GeoDataFrame:
-    """Exploads new rows from dataframe by lists of sampling points in column S.sampling_points. Also adds new column sample_len that
+def explode_sampling_point_gdf(gdf, points_geom_column: str) -> gpd.GeoDataFrame:
+    """Exploads new rows from dataframe by lists of sampling points. Also adds new column sample_len that
     it is calculated simply by dividing the length of the edge by the number of sampling points for it.
     """
     row_accumulator = []
     def explode_by_sampling_points(row):
-        if (row[S.sampling_points] != None):
-            point_count = len(row[S.sampling_points])
+        if (row[points_geom_column] != None):
+            point_count = len(row[points_geom_column])
             sampling_interval = round(row[S.geometry].length/point_count, 10)
-            for point_geom in row[S.sampling_points]:
+            for point_geom in row[points_geom_column]:
                 new_row = {}
                 new_row[S.edge_id] = row.name
                 new_row[S.sample_len] = sampling_interval
@@ -101,7 +101,7 @@ def get_sampling_points_around(point: Point, distance: float, count: int=20) -> 
     sampling_points = [boundary.interpolate(dist, normalized=True) for dist in sampling_distances]
     return sampling_points
 
-def explode_extra_sampling_point_gdf(gdf, points_geom_column: str):
+def explode_extra_sampling_point_gdf(gdf, points_geom_column: str) -> gpd.GeoDataFrame:
     """Explodes dataframe by column containing alternative sampling points for each row.
     """
     row_accumulator = []
@@ -167,3 +167,72 @@ def sjoin_noise_values(gdf, noise_layers: dict, log: Logger=None) -> gpd.GeoData
         log.error('schema of the dataframe was altered during removing duplicate samples')
 
     return distinct_samples.drop(columns=['sample_idx'])
+
+def aggregate_noise_values(sample_gdf, prefer_syke: bool=False) -> gpd.GeoDataFrame:
+
+    # 1) select noise value for each source (type)
+    road_columns = [S.hel_road, S.hel_hway, S.espoo_road, S.espoo_hway, S.syke_road, S.syke_hway]
+    train_columns = [S.hel_train, S.espoo_train, S.syke_train]
+    tram_columns = [S.hel_tram, S.syke_tram]
+    metro_columns = [S.hel_metro, S.syke_metro]
+
+    # reorder column names if syke is the preferred noise data
+    if (prefer_syke == True):
+        road_columns = [S.syke_road, S.syke_hway, S.hel_road, S.hel_hway, S.espoo_road, S.espoo_hway]
+        train_columns = [S.syke_train, S.hel_train, S.espoo_train]
+        tram_columns = [S.syke_tram, S.hel_tram]
+        metro_columns = [S.syke_metro, S.hel_metro]
+    
+    def get_first_non_nan_or_nan(row, columns: list) -> float:
+        for col in columns:
+            if np.isfinite(row[col]): return row[col]
+        return np.nan
+
+    sample_gdf[S.n_road] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, road_columns), axis=1)
+    sample_gdf[S.n_train] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, train_columns), axis=1)
+    sample_gdf[S.n_tram] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, tram_columns), axis=1)
+    sample_gdf[S.n_metro] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, metro_columns), axis=1)
+
+    # 2) add maximum noise value among rail noise sources (TODO decide if this is needed after all?)
+    rail_columns = [S.n_train, S.n_tram, S.n_metro]
+    sample_gdf[S.n_rail] = sample_gdf[rail_columns].max(axis=1)
+
+    # 3) add maximum noise value among different sources
+    def get_max_noise_value(row, columns: list) -> float:
+        values = [row[col] for col in columns if np.isfinite(row[col])]
+        return np.nanmax(values) if values else np.nan
+
+    noise_columns = [S.n_road, S.n_train, S.n_tram, S.n_metro]
+    sample_gdf[S.n_max] = sample_gdf.apply(lambda row: get_max_noise_value(row, noise_columns), axis=1)
+
+    # 4) add name(s) of noise sources of maximum noise values
+    def get_sources_of_max_noise(row, columns: list) -> tuple:
+        """Returns list of names of the noise sources that have the maximum noise value.
+        """
+        if np.isfinite(row[S.n_max]):
+            max_noise = row[S.n_max]
+            values = [row[col] for col in columns]
+            # if the max noise value is only by one source, return the name of it
+            if (values.count(max_noise) == 1):
+                return [columns[values.index(max_noise)]]
+            else:
+                source_indexes = [i for i in range(len(values)) if values[i] == max_noise]
+                return [columns[i] for i in source_indexes]
+        else:
+            return []
+
+    sample_gdf[S.n_max_sources] = sample_gdf.apply(lambda row: get_sources_of_max_noise(row, noise_columns), axis=1)
+
+    # 5) adjust max noises based on number of max noise sources
+    def get_adjusted_max_noise(row) -> float:
+        """Returns the max noise value if it is based on only one noise source. If many noise sources cause the max noise value, 
+        adjusts the max noise value by adding decibels by the count of noise sources.  
+        """
+        if row[S.n_max_sources]:
+            add_db = len(row[S.n_max_sources]) if len(row[S.n_max_sources]) > 1 else 0
+            return row[S.n_max] + add_db
+        else:
+            return np.nan
+
+    sample_gdf[S.n_max_adj] = sample_gdf.apply(lambda row: get_adjusted_max_noise(row), axis=1)
+    return sample_gdf
