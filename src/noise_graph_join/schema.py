@@ -8,7 +8,7 @@ class SamplingGdf:
     nodata_zone = 'nodata_zone'
     no_noise_values = 'no_noise_values'
     missing_noises = 'missing_noises'
-    extra_sampling_points = 'extra_sampling_points'
+    offset_sampling_points = 'offset_sampling_points'
     geometry = 'geometry'
     hel_road = 'hel_road'
     hel_hway = 'hel_hway'

@@ -101,7 +101,7 @@ def get_sampling_points_around(point: Point, distance: float, count: int=20) -> 
     sampling_points = [boundary.interpolate(dist, normalized=True) for dist in sampling_distances]
     return sampling_points
 
-def explode_extra_sampling_point_gdf(gdf, points_geom_column: str) -> gpd.GeoDataFrame:
+def explode_offset_sampling_point_gdf(gdf, points_geom_column: str) -> gpd.GeoDataFrame:
     """Explodes dataframe by column containing alternative sampling points for each row.
     """
     row_accumulator = []
