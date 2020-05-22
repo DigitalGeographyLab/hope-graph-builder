@@ -2,12 +2,14 @@ import sys
 sys.path.append('..')
 import os
 import fiona
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 from common.logger import Logger
 import utils as utils
 import common.igraph as ig_utils
 from common.schema import Edge as E, Node as N
+from schema import SamplingGdf as S
 
 def noise_graph_join(
     log: Logger, 
@@ -36,7 +38,7 @@ def noise_graph_join(
     gdf = utils.add_sampling_points_to_gdf(gdf, sampling_interval=3)
     point_gdf = utils.explode_sampling_point_gdf(gdf)
     point_gdf = utils.add_unique_geom_id(point_gdf, log)
-    uniq_point_gdf = point_gdf.drop_duplicates('xy_id', keep='first')
+    uniq_point_gdf = point_gdf.drop_duplicates(S.xy_id, keep='first')
     log.info(f'created {len(uniq_point_gdf)} unique sampling points ({round(len(point_gdf)/graph.ecount(),2)} per edge)')
 
     # add boolean column indicating wether sampling point is within potential nodata zone
@@ -53,20 +55,20 @@ def noise_graph_join(
     # spatially join noise values by sampling points from a set of noise surface layers
     point_noises = utils.sjoin_noise_values(uniq_point_gdf, noise_layers, log)
     
-    point_noises['no_noise_values'] = point_noises.apply(lambda row: utils.all_noise_values_none(row, noise_layers), axis=1)
+    point_noises[S.no_noise_values] = point_noises.apply(lambda row: utils.all_noise_values_none(row, noise_layers), axis=1)
     utils.log_none_noise_stats(log, point_noises)
 
     if (b_debug == True):
         point_noises.to_file(debug_gpkg, layer='sampling_points_noise', driver='GPKG')
 
     # add column indicating wether sampling points is both located in potential nodata_zone and is missing noise values
-    point_noises['missing_noises'] = point_noises.apply(lambda row: True if (row['nodata_zone'] == 1) & (row['no_noise_values'] == True) else False, axis=1)
+    point_noises[S.missing_noises] = point_noises.apply(lambda row: True if (row['nodata_zone'] == 1) & (row[S.no_noise_values] == True) else False, axis=1)
     utils.log_missing_noise_stats(point_noises, log)
 
     # create extra sampling points for sampling points missing noise values
-    missing_noises = point_noises[point_noises['missing_noises'] == True][['xy_id', 'geometry']].copy()
-    missing_noises['sampling_points'] = [utils.get_sampling_points_around(point, distance=7, count=20) for point in missing_noises['geometry']]
-    extra_sampling_points = utils.explode_extra_sampling_point_gdf(missing_noises)
+    missing_noises = point_noises[point_noises[S.missing_noises] == True][[S.xy_id, S.geometry]].copy()
+    missing_noises[S.extra_sampling_points] = [utils.get_sampling_points_around(point, distance=7, count=20) for point in missing_noises[S.geometry]]
+    extra_sampling_points = utils.explode_extra_sampling_point_gdf(missing_noises, S.extra_sampling_points)
 
     if (b_debug == True):
         extra_sampling_points.to_file(debug_gpkg, layer='extra_sampling_points', driver='GPKG')
@@ -78,19 +80,20 @@ def noise_graph_join(
         extra_sampling_point_noises.to_file(debug_gpkg, layer='extra_sampling_point_noises', driver='GPKG')
 
     # calculate average noise values per xy_id from extra sampling points
-    extra_samples_by_xy_id = extra_sampling_point_noises.groupby(by='xy_id')
+    extra_samples_by_xy_id = extra_sampling_point_noises.groupby(by=S.xy_id)
     extra_noise_samples = []
     for xy_id, group in extra_samples_by_xy_id:
         samples = group.copy()
         samples = samples.fillna(0)
         extra_sample = {name: samples[name].quantile(.7, interpolation='nearest') for name in noise_layers.keys()}
-        extra_sample['xy_id'] = xy_id
+        extra_sample[S.xy_id] = xy_id
         extra_noise_samples.append(extra_sample)
 
     extra_noise_samples_df = pd.DataFrame(extra_noise_samples)
+    extra_noise_samples_df = extra_noise_samples_df.replace(0, np.nan)
     
     # add newly sampled noise values to sampling points missing them
-    missing_noises = pd.merge(missing_noises.drop(columns=['sampling_points']), extra_noise_samples_df, on='xy_id', how='left')
+    missing_noises = pd.merge(missing_noises.drop(columns=[S.extra_sampling_points]), extra_noise_samples_df, on=S.xy_id, how='left')
     if (b_debug == True):
         missing_noises.to_file(debug_gpkg, layer='extra_noise_values', driver='GPKG')
     

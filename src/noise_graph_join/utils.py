@@ -6,6 +6,7 @@ from typing import List, Set, Dict, Tuple
 from pyproj import CRS
 import pandas as pd
 import geopandas as gpd
+from schema import SamplingGdf as S
 from common.logger import Logger
 
 def get_point_sampling_distances(sample_count: int) -> List[float]:
@@ -26,25 +27,25 @@ def get_sampling_points(geom: LineString, sampling_interval: int) -> List[Point]
     return [geom.interpolate(distance, normalized=True) for distance in sample_distances]
 
 def add_sampling_points_to_gdf(gdf, sampling_interval: int) -> gpd.GeoDataFrame:
-    """Adds new column 'sampling_points' with sampling points by specified interval (m) (sampling_interval).
+    """Adds new column S.sampling_points with sampling points by specified interval (m) (sampling_interval).
     """
-    gdf['sampling_points'] = [get_sampling_points(geom, sampling_interval) if isinstance(geom, LineString) else None for geom in gdf['geometry'].values]
+    gdf[S.sampling_points] = [get_sampling_points(geom, sampling_interval) if isinstance(geom, LineString) else None for geom in gdf[S.geometry].values]
     return gdf
 
 def explode_sampling_point_gdf(gdf) -> gpd.GeoDataFrame:
-    """Exploads new rows from dataframe by lists of sampling points in column 'sampling_points'. Also adds new column sample_len that
+    """Exploads new rows from dataframe by lists of sampling points in column S.sampling_points. Also adds new column sample_len that
     it is calculated simply by dividing the length of the edge by the number of sampling points for it.
     """
     row_accumulator = []
     def explode_by_sampling_points(row):
-        if (row['sampling_points'] != None):
-            point_count = len(row['sampling_points'])
-            sampling_interval = round(row['geometry'].length/point_count, 10)
-            for point_geom in row['sampling_points']:
+        if (row[S.sampling_points] != None):
+            point_count = len(row[S.sampling_points])
+            sampling_interval = round(row[S.geometry].length/point_count, 10)
+            for point_geom in row[S.sampling_points]:
                 new_row = {}
-                new_row['edge_id'] = row.name
-                new_row['sample_len'] = sampling_interval
-                new_row['geometry'] = point_geom
+                new_row[S.edge_id] = row.name
+                new_row[S.sample_len] = sampling_interval
+                new_row[S.geometry] = point_geom
                 row_accumulator.append(new_row)
     
     gdf.apply(explode_by_sampling_points, axis=1)
@@ -52,18 +53,19 @@ def explode_sampling_point_gdf(gdf) -> gpd.GeoDataFrame:
     return point_gdf
 
 def add_unique_geom_id(point_gdf: gpd.GeoDataFrame, log: Logger=None) -> gpd.GeoDataFrame:
-    point_gdf['xy_id'] = [f'{str(round(geom.x, 1))}_{str(round(geom.y, 1))}' for geom in point_gdf['geometry']]
-    unique_count = point_gdf['xy_id'].nunique()
+    """Adds an unique identifier (string) to GeoDataFrame of points based on point locations (x/y). 
+    """
+    point_gdf[S.xy_id] = [f'{str(round(geom.x, 1))}_{str(round(geom.y, 1))}' for geom in point_gdf[S.geometry]]
+    unique_count = point_gdf[S.xy_id].nunique()
     unique_share = round(100 * unique_count/len(point_gdf.index), 2)
-    if (log != None):
-        log.info(f'found {unique_count} unique sampling points ({unique_share} %)')
+    log.info(f'found {unique_count} unique sampling points ({unique_share} %)')
     return point_gdf
 
 def all_noise_values_none(row, noise_layers: list) -> bool:
     return all([np.isnan(row[layer]) for layer in noise_layers])
 
 def log_none_noise_stats(log: Logger, gdf: gpd.GeoDataFrame) -> None:
-    missing_count = len(gdf[gdf['no_noise_values'] == True])
+    missing_count = len(gdf[gdf[S.no_noise_values] == True])
     missing_ratio = round(100 * missing_count/len(gdf.index), 2)
     log.info(f'found {missing_count} ({missing_ratio} %) sampling points without noise values')
 
@@ -76,7 +78,7 @@ def add_inside_nodata_zone_column(gdf, nodata_zone: gpd.GeoDataFrame, log: Logge
     """
     joined = gpd.sjoin(gdf, nodata_zone, how='left', op='within').drop(['index_right'], axis=1)
     if (log != None):
-        nodata_zone_count = len(joined[joined['nodata_zone'] == 1])
+        nodata_zone_count = len(joined[joined[S.nodata_zone] == 1])
         nodata_zone_share = round(100 * nodata_zone_count/len(gdf.index), 2)
         log.info(f'found {nodata_zone_count} ({nodata_zone_share} %) sampling points inside potential nodata zone')
     return joined
@@ -85,7 +87,7 @@ def log_missing_noise_stats(gdf, log: Logger) -> None:
     """Returns sampling points located at possible nodata_zone and missing noise data. For these sampling points,
     noise values need to be interpolated later. Selection is done by columns nodata_zone (=1) and no_noise_values (=True).
     """
-    missing_noises_count = len(gdf[gdf['missing_noises'] == True])
+    missing_noises_count = len(gdf[gdf[S.missing_noises] == True])
     if (log != None):
         missing_share = round(100 * missing_noises_count/len(gdf.index), 2)
         log.info(f'found {missing_noises_count} ({missing_share} %) sampling points for which noise values need to be interpolated')
@@ -99,22 +101,26 @@ def get_sampling_points_around(point: Point, distance: float, count: int=20) -> 
     sampling_points = [boundary.interpolate(dist, normalized=True) for dist in sampling_distances]
     return sampling_points
 
-def explode_extra_sampling_point_gdf(gdf):
-    """Explodes dataframe of sampling points by column containing alternative sampling points for each sampling points. Here this
-    is used to sample values for those sampling points that are located in small nodata zones. 
+def explode_extra_sampling_point_gdf(gdf, points_geom_column: str):
+    """Explodes dataframe by column containing alternative sampling points for each row.
     """
     row_accumulator = []
     def explode_sampling_point_rows(row):
-        for point in row['sampling_points']:
+        for point in row[points_geom_column]:
             new_row = row.to_dict()
-            del new_row['sampling_points']
-            new_row['geometry'] = point
+            del new_row[points_geom_column]
+            new_row[S.geometry] = point
             row_accumulator.append(new_row)
 
     gdf.apply(explode_sampling_point_rows, axis=1)
     return gpd.GeoDataFrame(row_accumulator, crs=CRS.from_epsg(3879))
 
 def remove_duplicate_samples(sample_gdf, sample_idx: str, noise_layers: dict) -> gpd.GeoDataFrame:
+    """Removes duplicate rows generated in spatially joining noise surface values to sampling points. In some cases,
+    two or more (invalid) noise surfaces are overlapping each other and thus causing multiple samples at some locations.
+    For duplicate samples, the function persists highest values of sampled noise layers. The function keeps the column
+    structure of the given GeoDataFrame.
+    """
     duplicate_df = sample_gdf[sample_gdf.duplicated([sample_idx], keep=False)]
 
     if (len(duplicate_df) == 0):
@@ -131,7 +137,7 @@ def remove_duplicate_samples(sample_gdf, sample_idx: str, noise_layers: dict) ->
         deduplicated.append(distinct_sample)
     
     deduplicated_samples_gdf = gpd.GeoDataFrame(deduplicated, crs=CRS.from_epsg(3879))
-    
+
     distinct_samples_gdf = sample_gdf.drop_duplicates([sample_idx], keep=False)
     # order columns to match original column order
     deduplicated_samples_gdf = deduplicated_samples_gdf[list(distinct_samples_gdf.columns)]
