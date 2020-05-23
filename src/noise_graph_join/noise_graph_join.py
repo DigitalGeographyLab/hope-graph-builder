@@ -13,12 +13,12 @@ from common.schema import Edge as E, Node as N
 from schema import SamplingGdf as S
 
 def noise_graph_join(
-    log: Logger, 
+    log: Logger,
     b_debug: bool,
     debug_gpkg: str,
-    graph_file: str, 
-    noise_gpkg: str, 
-    sampling_interval: float, 
+    graph_file: str,
+    noise_gpkg: str,
+    sampling_interval: float,
     nodata_zone_gpkg_layer: dict
     ):
 
@@ -128,7 +128,12 @@ def noise_graph_join(
     if (b_debug == True):
         log.info('exporting sampling points to gpkg')
         final_samples_gdf.drop(columns=[S.n_max_sources]).to_file(debug_gpkg, layer='final_noise_samples', driver='GPKG')
-    
+
+    edge_noises = utils.aggregate_noises_by_edge(final_samples, log)
+
+    if (len(edge_noises.index) != gdf[S.sampling_points].count()):
+        log.error(f'mismatch in final aggregated noise values by edges ({len(edge_noises.index)} != {len(gdf.index)})')
+
     log.info('all done')
 
 if (__name__ == '__main__'):

@@ -1,13 +1,15 @@
 import sys
 sys.path.append('..')
-import numpy as np
-from shapely.geometry import LineString, Point, GeometryCollection
-from typing import List, Set, Dict, Tuple
-from pyproj import CRS
-import pandas as pd
 import geopandas as gpd
-from schema import SamplingGdf as S
+import numpy as np
+import pandas as pd
+from collections import Counter
+from common.schema import Edge
 from common.logger import Logger
+from shapely.geometry import LineString, Point, GeometryCollection
+from schema import SamplingGdf as S
+from pyproj import CRS
+from typing import List, Set, Dict, Tuple
 
 def get_point_sampling_distances(sample_count: int) -> List[float]:
     """Calculates set of distances for sample points as relative shares. 
@@ -236,3 +238,28 @@ def aggregate_noise_values(sample_gdf, prefer_syke: bool=False) -> gpd.GeoDataFr
 
     sample_gdf[S.n_max_adj] = sample_gdf.apply(lambda row: get_adjusted_max_noise(row), axis=1)
     return sample_gdf
+
+def aggregate_noises_by_edge(sample_gdf: gpd.GeoDataFrame, log: Logger) -> gpd.GeoDataFrame:
+    """Calculates edge-level noise attributes (noises & noise_sources) from sampling points.
+    """
+    agg_columns = [S.edge_id, S.n_max_adj, S.n_max_sources, S.sample_len]
+    out_columns = [S.edge_id, Edge.noises.name, Edge.noise_sources.name]
+
+    noises_by_edge = sample_gdf[agg_columns].groupby(S.edge_id).agg(
+        db_counts=(S.n_max_adj, lambda x: x.value_counts().to_dict()),
+        sources=(S.n_max_sources, 'sum'),
+        sample_len=(S.sample_len, 'median')
+        ).reset_index()
+
+    def calculate_noise_exposures(row):
+        return {int(db): round(count * row[S.sample_len], 3) for db, count in row['db_counts'].items()}
+
+    noises_by_edge['noises'] = noises_by_edge.apply(lambda row: calculate_noise_exposures(row), axis=1)
+
+    def calculate_noise_source_counts(row):
+        sources = Counter(row['sources']).keys()
+        counts = Counter(row['sources']).values()
+        return dict(zip(sources, counts))
+    
+    noises_by_edge['noise_sources'] = noises_by_edge.apply(lambda row: calculate_noise_source_counts(row), axis=1)
+    return noises_by_edge[out_columns]
