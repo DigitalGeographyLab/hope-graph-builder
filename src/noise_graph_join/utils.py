@@ -239,7 +239,7 @@ def aggregate_noise_values(sample_gdf, prefer_syke: bool=False) -> gpd.GeoDataFr
     sample_gdf[S.n_max_adj] = sample_gdf.apply(lambda row: get_adjusted_max_noise(row), axis=1)
     return sample_gdf
 
-def aggregate_noises_by_edge(sample_gdf: gpd.GeoDataFrame, log: Logger) -> gpd.GeoDataFrame:
+def aggregate_noises_by_edge(sample_gdf: gpd.GeoDataFrame, log: Logger) -> pd.DataFrame:
     """Calculates edge-level noise attributes (noises & noise_sources) from sampling points.
     """
     agg_columns = [S.edge_id, S.n_max_adj, S.n_max_sources, S.sample_len]

@@ -11,33 +11,21 @@ import utils as utils
 import common.igraph as ig_utils
 from common.schema import Edge as E, Node as N
 from schema import SamplingGdf as S
+from typing import List, Set, Dict, Tuple
 
 def noise_graph_join(
     log: Logger,
-    b_debug: bool,
-    debug_gpkg: str,
-    graph_file: str,
-    noise_gpkg: str,
+    edge_gdf: gpd.GeoDataFrame,
     sampling_interval: float,
-    nodata_zone_gpkg_layer: dict
-    ):
-
-    graph = ig_utils.read_graphml(graph_file)
-    log.info(f'read graph of {graph.ecount()} edges')
-
-    # read nodata zone: narrow area between noise surfaces of different municipalities
-    nodata_zone = gpd.read_file(nodata_zone_gpkg_layer['gpkg'], layer=nodata_zone_gpkg_layer['layer'])
-
-    # read noise data
-    noise_layer_names = [layer for layer in fiona.listlayers(noise_gpkg)]
-    noise_layers = { name: gpd.read_file(noise_gpkg, layer=name) for name in noise_layer_names }
-    noise_layers = { name: gdf.rename(columns={'db_low':name}) for name, gdf in noise_layers.items() }
-    log.info(f'read {len(noise_layers)} noise layers')
+    noise_layers: Dict[str, gpd.GeoDataFrame],
+    nodata_layer: gpd.GeoDataFrame,
+    b_debug: bool=False,
+    debug_gpkg: str=''
+    ) -> gpd.GeoDataFrame:
 
     # create sampling points
-    gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig])
-    gdf = utils.add_sampling_points_to_gdf(gdf, sampling_interval=3)
-    point_gdf = utils.explode_sampling_point_gdf(gdf, points_geom_column=S.sampling_points)
+    edge_gdf = utils.add_sampling_points_to_gdf(edge_gdf, sampling_interval=3)
+    point_gdf = utils.explode_sampling_point_gdf(edge_gdf, points_geom_column=S.sampling_points)
 
     # select only unique sampling points for sampling
     point_gdf = utils.add_unique_geom_id(point_gdf, log)
@@ -46,14 +34,14 @@ def noise_graph_join(
     log.info(f'created {len(uniq_point_gdf)} unique sampling points ({round(len(point_gdf)/graph.ecount(),2)} per edge)')
 
     # add boolean column indicating wether sampling point is within potential nodata zone
-    uniq_point_gdf = utils.add_inside_nodata_zone_column(uniq_point_gdf, nodata_zone, log)
+    uniq_point_gdf = utils.add_inside_nodata_zone_column(uniq_point_gdf, nodata_layer, log)
     # columns: edge_id, sample_len, xy_id, nodata_zone (1 / na)
 
     if (b_debug == True):
         if os.path.exists(debug_gpkg):
             os.remove(debug_gpkg)
         log.info('exporting edges and sampling points for debugging')
-        gdf.drop(columns=[S.sampling_points]).to_file(debug_gpkg, layer='graph_edges', driver='GPKG')
+        edge_gdf.drop(columns=[S.sampling_points]).to_file(debug_gpkg, layer='graph_edges', driver='GPKG')
         uniq_point_gdf.to_file(debug_gpkg, layer='sampling_points', driver='GPKG')
 
     # spatially join noise values by sampling points from a set of noise surface layers
@@ -131,18 +119,33 @@ def noise_graph_join(
 
     edge_noises = utils.aggregate_noises_by_edge(final_samples, log)
 
-    if (len(edge_noises.index) != gdf[S.sampling_points].count()):
+    if (len(edge_noises.index) != edge_gdf[S.sampling_points].count()):
         log.error(f'mismatch in final aggregated noise values by edges ({len(edge_noises.index)} != {len(gdf.index)})')
 
     log.info('all done')
+    return edge_noises
 
 if (__name__ == '__main__'):
-    noise_graph_join(
-        log = Logger(printing=True, log_file='noise_graph_join.log', level='debug'),
-        b_debug = True,
-        debug_gpkg = 'debug/noise_join_debug.gpkg',
-        graph_file = 'data/test_graph.graphml',
-        noise_gpkg = 'data/noise_data_processed.gpkg',
+    log = Logger(printing=True, log_file='noise_graph_join.log', level='debug')
+    graph = ig_utils.read_graphml('data/test_graph.graphml')
+    log.info(f'read graph of {graph.ecount()} edges')
+    edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig])
+
+    # read noise data
+    noise_layer_names = [layer for layer in fiona.listlayers('data/noise_data_processed.gpkg')]
+    noise_layers = { name: gpd.read_file('data/noise_data_processed.gpkg', layer=name) for name in noise_layer_names }
+    noise_layers = { name: gdf.rename(columns={'db_low':name}) for name, gdf in noise_layers.items() }
+    log.info(f'read {len(noise_layers)} noise layers')
+
+    # read nodata zone: narrow area between noise surfaces of different municipalities
+    nodata_layer = gpd.read_file('data/extents.gpkg', layer='municipal_boundaries')
+
+    edge_noise_df = noise_graph_join(
+        log = log,
+        edge_gdf=edge_gdf,
         sampling_interval = 3,
-        nodata_zone_gpkg_layer = {'gpkg': 'data/extents.gpkg', 'layer': 'municipal_boundaries'}
+        noise_layers = noise_layers,
+        nodata_layer = nodata_layer,
+        b_debug = False,
+        debug_gpkg = 'debug/noise_join_debug.gpkg'
     )
