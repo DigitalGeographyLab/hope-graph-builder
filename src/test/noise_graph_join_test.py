@@ -1,15 +1,21 @@
 import sys
 sys.path.append('..')
+sys.path.append('../noise_graph_join')
 import os
 import time
+import fiona
 import unittest
 import numpy as np
+import pandas as pd
+import geopandas as gpd
 import noise_graph_join.utils as utils
 import common.igraph as ig_utils
+from noise_graph_join import noise_graph_join
+from common.schema import Edge as E
 from common.logger import Logger
 from shapely.geometry import LineString, Polygon, Point, GeometryCollection
 
-log = Logger(printing=True)
+log = Logger()
 
 class TestNoiseGraphJoinUtils(unittest.TestCase):
 
@@ -40,7 +46,7 @@ class TestNoiseGraphJoinUtils(unittest.TestCase):
                 self.assertAlmostEqual(sp.distance(line_geom), 0, 5)
 
         # validate sampling point gdf (exploaded from edge gdf with sampling points)
-        sampling_gdf = utils.explode_sampling_point_gdf(gdf)
+        sampling_gdf = utils.explode_sampling_point_gdf(gdf, 'sampling_points')
         self.assertGreater(len(sampling_gdf), len(gdf))
         self.assertEqual(len(sampling_gdf), 58554)
         # check that the total representative length of each set of sampling points equals the length of the respective edge
@@ -60,7 +66,41 @@ class TestNoiseGraphJoinUtils(unittest.TestCase):
         distances_between = [sp.distance(point) for point in sps]
         self.assertAlmostEqual(np.std(distances_between), 24.812, 3)
 
-# class TestNoiseGraphJoin(unittest.TestCase):
+class TestNoiseGraphJoin(unittest.TestCase):
+
+    def test_edge_noise_join(self):
+        graph = ig_utils.read_graphml('data/test_graph.graphml')
+        edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length])
+        edge_gdf['edge_id'] = edge_gdf.index
+        # read noise data
+        noise_layer_names = [layer for layer in fiona.listlayers('data/noise_data_processed.gpkg')]
+        noise_layers = { name: gpd.read_file('data/noise_data_processed.gpkg', layer=name) for name in noise_layer_names }
+        noise_layers = { name: gdf.rename(columns={'db_low':name}) for name, gdf in noise_layers.items() }
+
+        # read nodata zone: narrow area between noise surfaces of different municipalities
+        nodata_layer = gpd.read_file('data/extents.gpkg', layer='municipal_boundaries')
+
+        edge_noises = noise_graph_join.noise_graph_join(
+            log = log,
+            edge_gdf=edge_gdf,
+            sampling_interval = 3,
+            noise_layers = noise_layers,
+            nodata_layer = nodata_layer
+        )
+
+        self.assertEqual(edge_noises['edge_id'].nunique(), 3522)
+
+        edge_noises_df = pd.merge(edge_gdf, edge_noises, how='inner', on='edge_id')
+        edge_noises_df['total_noise_len'] = [round(sum(noises.values()), 4) for noises in edge_noises_df['noises']]
+
+        def validate_edge_noises(row):
+            geom_length = row['geometry'].length
+            self.assertLessEqual(round(row['total_noise_len'], 2), round(geom_length, 2))
+        
+        edge_noises_df.apply(lambda row: validate_edge_noises(row), axis=1)
+
+        self.assertAlmostEqual(edge_noises_df['total_noise_len'].mean(), 33.20, 2)
+        
 
 if (__name__ == '__main__'):
     unittest.main()

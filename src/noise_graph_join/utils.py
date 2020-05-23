@@ -252,7 +252,7 @@ def aggregate_noises_by_edge(sample_gdf: gpd.GeoDataFrame, log: Logger) -> pd.Da
         ).reset_index()
 
     def calculate_noise_exposures(row):
-        return {int(db): round(count * row[S.sample_len], 3) for db, count in row['db_counts'].items()}
+        return {int(db): round(count * row[S.sample_len], 5) for db, count in row['db_counts'].items()}
 
     noises_by_edge['noises'] = noises_by_edge.apply(lambda row: calculate_noise_exposures(row), axis=1)
 

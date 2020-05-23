@@ -31,7 +31,7 @@ def noise_graph_join(
     point_gdf = utils.add_unique_geom_id(point_gdf, log)
     uniq_point_gdf = point_gdf.drop_duplicates(S.xy_id, keep='first')
     initial_sampling_count = len(uniq_point_gdf.index)
-    log.info(f'created {len(uniq_point_gdf)} unique sampling points ({round(len(point_gdf)/graph.ecount(),2)} per edge)')
+    log.info(f'created {len(uniq_point_gdf)} unique sampling points ({round(len(point_gdf)/point_gdf[S.edge_id].nunique(),2)} per edge)')
 
     # add boolean column indicating wether sampling point is within potential nodata zone
     uniq_point_gdf = utils.add_inside_nodata_zone_column(uniq_point_gdf, nodata_layer, log)
