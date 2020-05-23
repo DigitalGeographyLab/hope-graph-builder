@@ -138,7 +138,11 @@ launch.json
 otp_graph_data/
 docs/python-igraph.pdf
 src/otp_graph_import/debug/
+src/otp_graph_import/hma_graph.graphml
 src/noise_data_preprocessing/noise_data/noise_data_raw.gpkg*
 src/noise_data_preprocessing/noise_data/noise_data_processed.gpkg*
 src/noise_data_preprocessing/noise_data/syke/
 src/noise_data_preprocessing/noise_data/espoo/
+src/noise_graph_join/data
+src/noise_graph_join/debug
+src/test/data/noise_data_processed.gpkg

@@ -18,7 +18,7 @@ class Logger:
         """Prints a log message to console/terminal and/or to a log file (if specified at init). The log message is prefixed
         with current time and the given logging level.
         """
-        log_prefix = datetime.utcnow().strftime('%y/%m/%d %H:%M:%S') + ' ['+ level +'] '
+        log_prefix = datetime.utcnow().strftime('%y/%m/%d %H:%M:%S') + f' [{level}] '
         log_text = log_prefix + text
         if (self.printing == True):
             print(log_text)
@@ -41,12 +41,10 @@ class Logger:
     def duration(self, time1, text, round_n: int = 3, unit: str = 'ms') -> None:
         """Creates a log message that contains the duration between the current time and a given time [time1].
         """
-        log_str = ''
         if (unit == 's'):
             time_elapsed = round(time.time() - time1, round_n)
-            log_str = '--- %s s --- %s' % (time_elapsed, text)
         elif (unit == 'ms'):
             time_elapsed = round((time.time() - time1) * 1000)
-            log_str = '--- %s ms --- %s' % (time_elapsed, text)
+        log_str = f'--- {time_elapsed} {unit} --- {text}'
 
         self.print_log(log_str, 'INFO')

@@ -234,10 +234,10 @@ def convert_otp_graph_to_igraph(
 if (__name__ == '__main__'):
     log = Logger(printing=True, log_file='otp_graph_import.log', level='info')
     graph = convert_otp_graph_to_igraph(
-        node_csv_file = 'otp_graph_data/test_nodes.csv',
-        edge_csv_file = 'otp_graph_data/test_edges.csv',
+        node_csv_file = 'otp_graph_data/nodes.csv',
+        edge_csv_file = 'otp_graph_data/edges.csv',
         hma_poly_file = 'extent_data/HMA.geojson',
-        igraph_out_file = '',
+        igraph_out_file = 'hma_graph.graphml',
         b_export_otp_data_to_gpkg = False,
         b_export_decomposed_igraphs_to_gpkg = False,
         b_export_final_graph_to_gpkg = False,

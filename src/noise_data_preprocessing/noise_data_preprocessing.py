@@ -126,7 +126,7 @@ def get_noise_data(
 
 if (__name__ == '__main__'):
     get_noise_data(
-        log=Logger(printing=True, log_file='noise_data_preprocessing.log', level='info'),
+        log = Logger(printing=True, log_file='noise_data_preprocessing.log', level='info'),
         hel_wfs_download = False,
         process_hel = True,
         process_espoo = True,
