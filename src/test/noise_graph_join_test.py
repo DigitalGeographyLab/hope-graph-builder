@@ -94,8 +94,7 @@ class TestNoiseGraphJoin(unittest.TestCase):
         edge_noises_df['total_noise_len'] = [round(sum(noises.values()), 4) for noises in edge_noises_df['noises']]
 
         def validate_edge_noises(row):
-            geom_length = row['geometry'].length
-            self.assertLessEqual(round(row['total_noise_len'], 2), round(geom_length, 2))
+            self.assertLessEqual(round(row['total_noise_len'], 1), round(row['length'], 1))
         
         edge_noises_df.apply(lambda row: validate_edge_noises(row), axis=1)
 

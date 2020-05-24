@@ -97,6 +97,9 @@ def convert_otp_graph_to_igraph(
     # 7) add edges to graph
     log.info('adding edges to graph')
 
+    # get edge lengths by projected geometry
+    e_filt[Edge.length.name] = [round(geom.length, 4) if isinstance(geom, LineString) else 0.0 for geom in e_filt[Edge.geometry.name]]
+
     def get_ig_uv(edge):
         return (ids_otp_ig[edge['node_orig_id']], ids_otp_ig[edge['node_dest_id']])
 
