@@ -3,6 +3,7 @@ sys.path.append('..')
 sys.path.append('../noise_graph_join')
 import os
 import time
+from collections import Counter
 import fiona
 import unittest
 import numpy as np
@@ -100,6 +101,9 @@ class TestNoiseGraphJoin(unittest.TestCase):
 
         self.assertAlmostEqual(edge_noises_df['total_noise_len'].mean(), 33.20, 2)
         
+        # test frequency of different main noise sources
+        noise_sources = dict(Counter(list(edge_noises_df[E.noise_source.name])))
+        self.assertDictEqual(noise_sources, {'n_road': 2322, 'n_train': 1198, None: 2})
 
 if (__name__ == '__main__'):
     unittest.main()

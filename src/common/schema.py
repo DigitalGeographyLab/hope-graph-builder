@@ -31,7 +31,8 @@ class Edge(enum.Enum):
    traversable_biking = 'b_tb'
    bike_safety_factor = 'bsf'
    noises = 'n'
-   noise_sources = 'ns'
+   noise_source = 'ns'
+   noise_sources = 'nss'
 
 
 def to_str(value):

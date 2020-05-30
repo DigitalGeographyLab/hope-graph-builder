@@ -3,6 +3,7 @@ sys.path.append('..')
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from statistics import mode
 from collections import Counter
 from common.schema import Edge
 from common.logger import Logger
@@ -241,25 +242,43 @@ def aggregate_noise_values(sample_gdf, prefer_syke: bool=False) -> gpd.GeoDataFr
 
 def aggregate_noises_by_edge(sample_gdf: gpd.GeoDataFrame, log: Logger) -> pd.DataFrame:
     """Calculates edge-level noise attributes (noises & noise_sources) from sampling points.
+    e.g. noises = { 45: 13.2, 50: 22.1 }, noise_source = 'train' & noise_sources = { 'road': 3, 'train', 6 } 
     """
     agg_columns = [S.edge_id, S.n_max_adj, S.n_max_sources, S.sample_len]
-    out_columns = [S.edge_id, Edge.noises.name, Edge.noise_sources.name]
+    out_columns = [S.edge_id, Edge.noises.name, Edge.noise_source.name, Edge.noise_sources.name]
 
-    noises_by_edge = sample_gdf[agg_columns].groupby(S.edge_id).agg(
+    edge_noises = sample_gdf[agg_columns].groupby(S.edge_id).agg(
         db_counts=(S.n_max_adj, lambda x: x.value_counts().to_dict()),
         sources=(S.n_max_sources, 'sum'),
         sample_len=(S.sample_len, 'median')
         ).reset_index()
 
     def calculate_noise_exposures(row):
-        return {int(db): round(count * row[S.sample_len], 5) for db, count in row['db_counts'].items()}
+        """Calculates dB specific noise exposures from dB counts, e.g. -> { 45: 13.2, 50: 22.1 }"""
+        if row['db_counts']:
+            return {int(db): round(count * row[S.sample_len], 5) for db, count in row['db_counts'].items()}
+        else:
+            return {}
 
-    noises_by_edge['noises'] = noises_by_edge.apply(lambda row: calculate_noise_exposures(row), axis=1)
+    edge_noises[Edge.noises.name] = edge_noises.apply(lambda row: calculate_noise_exposures(row), axis=1)
 
-    def calculate_noise_source_counts(row):
-        sources = Counter(row['sources']).keys()
-        counts = Counter(row['sources']).values()
-        return dict(zip(sources, counts))
-    
-    noises_by_edge['noise_sources'] = noises_by_edge.apply(lambda row: calculate_noise_source_counts(row), axis=1)
-    return noises_by_edge[out_columns]
+    def get_main_noise_source(row) -> str:
+        """Returns the most frequent noise source of the edge or None if it does not have noise sources.
+        """
+        if row['sources']:
+            return mode(row['sources'])
+        else:
+            return None
+
+    def calculate_noise_source_counts(row) -> dict:
+        """e.g. -> { 'road': 3, 'train', 6 }"""
+        if row['sources']:
+            sources = Counter(row['sources']).keys()
+            counts = Counter(row['sources']).values()
+            return dict(zip(sources, counts))
+        else:
+            return {}
+
+    edge_noises[Edge.noise_source.name] = edge_noises.apply(lambda row: get_main_noise_source(row), axis=1)
+    edge_noises[Edge.noise_sources.name] = edge_noises.apply(lambda row: calculate_noise_source_counts(row), axis=1)
+    return edge_noises[out_columns]
