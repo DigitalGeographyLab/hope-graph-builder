@@ -86,13 +86,21 @@ def export_to_graphml(G: Graph, graph_file: str, n_attrs=[], e_attrs=[]):
                 Gc.vs[attr.value] = [str(value) for value in list(Gc.vs[attr.value])]
     else:
         for attr in n_attrs:
-            Gc.vs[attr] = [str(value) for value in list(Gc.vs[attr])]
+            Gc.vs[attr.value] = [str(value) for value in list(Gc.vs[attr.value])]
+        # delete unspecified attributes
+        for node_attr in G.vs.attribute_names():
+            if (node_attr not in [attr.value for attr in n_attrs]):
+                del(Gc.vs[node_attr])
     if (e_attrs == []):
         for attr in Edge:
             if (attr.value in Gc.es[0].attributes()):
                 Gc.es[attr.value] = [str(value) for value in list(Gc.es[attr.value])]
     else:
         for attr in e_attrs:
-            Gc.es[attr] = [str(value) for value in list(Gc.es[attr])]
+            Gc.es[attr.value] = [str(value) for value in list(Gc.es[attr.value])]
+        # delete unspecified attributes
+        for edge_attr in G.es.attribute_names():
+            if (edge_attr not in [attr.value for attr in e_attrs]):
+                del(Gc.es[edge_attr])
 
     Gc.save(graph_file, format='graphml')
