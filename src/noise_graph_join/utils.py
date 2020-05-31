@@ -86,15 +86,6 @@ def add_inside_nodata_zone_column(gdf, nodata_zone: gpd.GeoDataFrame, log: Logge
         log.info(f'found {nodata_zone_count} ({nodata_zone_share} %) sampling points inside potential nodata zone')
     return joined
 
-def log_missing_noise_stats(gdf, log: Logger) -> None:
-    """Returns sampling points located at possible nodata_zone and missing noise data. For these sampling points,
-    noise values need to be interpolated later. Selection is done by columns nodata_zone (=1) and no_noise_values (=True).
-    """
-    missing_noises_count = len(gdf[gdf[S.missing_noises] == True])
-    if (log != None):
-        missing_share = round(100 * missing_noises_count/len(gdf.index), 2)
-        log.info(f'found {missing_noises_count} ({missing_share} %) sampling points for which noise values need to be interpolated')
-
 def get_sampling_points_around(point: Point, distance: float, count: int=20) -> List[Point]:
     """Returns a set of sampling points at specified distance around a given point.
     """

@@ -53,61 +53,72 @@ def noise_graph_join(
     # add column indicating wether sampling points is both located in potential nodata_zone and is missing noise values
     noise_samples[S.missing_noises] = noise_samples.apply(lambda row: True if (row[S.nodata_zone] == 1) & (row[S.no_noise_values] == True) else False, axis=1)
     normal_samples = noise_samples[noise_samples[S.missing_noises] == False].copy()
-    utils.log_missing_noise_stats(noise_samples, log)
 
     if (b_debug == True):
         noise_samples.to_file(debug_gpkg, layer='sampling_points_noise', driver='GPKG')
 
-    # interpolate noise values for sampling points missing them in nodata zones
-    interpolated_samples = noise_samples[noise_samples[S.missing_noises] == True][[S.xy_id, S.geometry]].copy()
-    interpolated_samples[S.offset_sampling_points] = [utils.get_sampling_points_around(point, distance=7, count=20) for point in interpolated_samples[S.geometry]]
-    offset_sampling_points = utils.explode_offset_sampling_point_gdf(interpolated_samples, S.offset_sampling_points)
+    missing_noises_count = len(noise_samples[noise_samples[S.missing_noises] == True])
+    missing_share = round(100 * missing_noises_count/len(noise_samples.index), 2)
+    log.info(f'found {missing_noises_count} ({missing_share} %) sampling points for which noise values need to be interpolated')
 
-    if (b_debug == True):
-        offset_sampling_points.to_file(debug_gpkg, layer='offset_sampling_points', driver='GPKG')
-
-    # join noise values to offset sampling points
-    offset_sampling_point_noises = utils.sjoin_noise_values(offset_sampling_points, noise_layers, log)
-    
-    if (b_debug == True):
-        offset_sampling_point_noises.to_file(debug_gpkg, layer='offset_sampling_point_noises', driver='GPKG')
-
-    # calculate average noise values per xy_id from offset sampling points
-    offset_samples_by_xy_id = offset_sampling_point_noises.groupby(by=S.xy_id)
-    row_accumulator = []
-    for xy_id, group in offset_samples_by_xy_id:
-        samples = group.copy()
-        samples = samples.fillna(0)
-        interpolated_sample = {name: samples[name].quantile(.7, interpolation='nearest') for name in noise_layers.keys()}
-        interpolated_sample[S.xy_id] = xy_id
-        row_accumulator.append(interpolated_sample)
-
-    interpolated_noise_samples = pd.DataFrame(row_accumulator)
-    interpolated_noise_samples = interpolated_noise_samples.replace(0, np.nan)
-    
-    # add newly sampled noise values to sampling points missing them
-    interpolated_samples = pd.merge(interpolated_samples.drop(columns=[S.offset_sampling_points]), interpolated_noise_samples, on=S.xy_id, how='left')
-    if (b_debug == True):
-        interpolated_samples.to_file(debug_gpkg, layer='interpolated_samples', driver='GPKG')
-
-    # add maximum noise values etc. to sampling points
-    log.info('finding maximum noise values')
-    normal_samples = utils.aggregate_noise_values(normal_samples)
-    interpolated_samples = utils.aggregate_noise_values(interpolated_samples, prefer_syke=True)
-
-    # combine sampling point dataframes to one
+    # define columns for sampled values
     sampling_columns = [S.xy_id, S.road, S.train, S.tram, S.metro, S.n_max, S.n_max_sources, S.n_max_adj]
-    normal_samples = normal_samples[sampling_columns]
-    interpolated_samples = interpolated_samples[sampling_columns]
-    concatenated_samples = pd.concat([normal_samples, interpolated_samples], ignore_index=True)
 
-    if (concatenated_samples[S.xy_id].nunique() != len(concatenated_samples.index)):
-        log.error(f'found invalid number of unique sampling point ids: {len(concatenated_samples.index)} != {concatenated_samples[S.xy_id].nunique()}')
+    if (missing_noises_count == 0):
+        log.info('processing noise samples')
+        all_samples = utils.aggregate_noise_values(normal_samples)
+        all_samples = all_samples[sampling_columns]
+    else:
+        # interpolate noise values for sampling points missing them in nodata zones
+        interpolated_samples = noise_samples[noise_samples[S.missing_noises] == True][[S.xy_id, S.geometry]].copy()
+        interpolated_samples[S.offset_sampling_points] = [utils.get_sampling_points_around(point, distance=7, count=20) for point in interpolated_samples[S.geometry]]
+        offset_sampling_points = utils.explode_offset_sampling_point_gdf(interpolated_samples, S.offset_sampling_points)
+
+        if (b_debug == True):
+            offset_sampling_points.to_file(debug_gpkg, layer='offset_sampling_points', driver='GPKG')
+
+        # join noise values to offset sampling points
+        offset_sampling_point_noises = utils.sjoin_noise_values(offset_sampling_points, noise_layers, log)
+        
+        if (b_debug == True):
+            offset_sampling_point_noises.to_file(debug_gpkg, layer='offset_sampling_point_noises', driver='GPKG')
+
+        # calculate average noise values per xy_id from offset sampling points
+        offset_samples_by_xy_id = offset_sampling_point_noises.groupby(by=S.xy_id)
+        row_accumulator = []
+        for xy_id, group in offset_samples_by_xy_id:
+            samples = group.copy()
+            samples = samples.fillna(0)
+            interpolated_sample = {name: samples[name].quantile(.7, interpolation='nearest') for name in noise_layers.keys()}
+            interpolated_sample[S.xy_id] = xy_id
+            row_accumulator.append(interpolated_sample)
+
+        interpolated_noise_samples = pd.DataFrame(row_accumulator)
+        interpolated_noise_samples = interpolated_noise_samples.replace(0, np.nan)
+        
+        # add newly sampled noise values to sampling points missing them
+        interpolated_samples = pd.merge(interpolated_samples.drop(columns=[S.offset_sampling_points]), interpolated_noise_samples, on=S.xy_id, how='left')
+        if (b_debug == True):
+            interpolated_samples.to_file(debug_gpkg, layer='interpolated_samples', driver='GPKG')
+
+        # add maximum noise values etc. to sampling points
+        log.info('processing noise samples')
+        normal_samples = utils.aggregate_noise_values(normal_samples)
+        interpolated_samples = utils.aggregate_noise_values(interpolated_samples, prefer_syke=True)
+
+        # combine sampling point dataframes to one
+        normal_samples = normal_samples[sampling_columns]
+        interpolated_samples = interpolated_samples[sampling_columns]
+
+        all_samples = pd.concat([normal_samples, interpolated_samples], ignore_index=True)
     
-    if (initial_sampling_count != len(concatenated_samples.index)):
-        log.error(f'found mismatch in sampling point count: {len(concatenated_samples.index)} != {initial_sampling_count}')
+    if (all_samples[S.xy_id].nunique() != len(all_samples.index)):
+        log.error(f'found invalid number of unique sampling point ids: {len(all_samples.index)} != {all_samples[S.xy_id].nunique()}')
+    
+    if (initial_sampling_count != len(all_samples.index)):
+        log.error(f'found mismatch in sampling point count: {len(all_samples.index)} != {initial_sampling_count}')
 
-    final_samples = pd.merge(point_gdf, concatenated_samples, how='left', on=S.xy_id)
+    final_samples = pd.merge(point_gdf, all_samples, how='left', on=S.xy_id)
 
     if (len(final_samples.index) != len(point_gdf.index)):
         log.error(f'mismatch in row counts after merging sampled values to initial sampling points: {len(final_samples.index)} != {len(point_gdf.index)}')
@@ -120,7 +131,7 @@ def noise_graph_join(
     edge_noises = utils.aggregate_noises_by_edge(final_samples, log)
 
     if (len(edge_noises.index) != edge_gdf[S.sampling_points].count()):
-        log.error(f'mismatch in final aggregated noise values by edges ({len(edge_noises.index)} != {len(gdf.index)})')
+        log.error(f'mismatch in final aggregated noise values by edges ({len(edge_noises.index)} != {len(edge_gdf.index)})')
 
     log.info('all done')
     return edge_noises.rename(columns={ S.edge_id: E.id_ig.name })
@@ -132,7 +143,7 @@ def export_edge_noise_csv(edge_noises: pd.DataFrame, out_dir: str):
 
 if (__name__ == '__main__'):
     log = Logger(printing=True, log_file='noise_graph_join.log', level='debug')
-    graph = ig_utils.read_graphml('data/test_graph.graphml')
+    graph = ig_utils.read_graphml('data/kumpula.graphml')
     log.info(f'read graph of {graph.ecount()} edges')
     edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig])
 
