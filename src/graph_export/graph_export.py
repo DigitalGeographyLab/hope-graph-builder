@@ -1,12 +1,9 @@
 import sys
 sys.path.append('..')
-from common.logger import Logger
 import common.igraph as ig_utils
 from common.schema import Edge as E, Node as N
 
-log = Logger(printing=True, log_file='graph_export.log')
-
-graph = ig_utils.read_graphml('data/test_graph_noises.graphml')
+graph = ig_utils.read_graphml('data/kumpula_noises.graphml')
 
 out_node_attrs = [N.geometry, N.geom_wgs]
 out_edge_attrs = [E.uv, E.geometry, E.geom_wgs, E.length, E.length_b, E.noises, E.noise_source]
@@ -28,4 +25,4 @@ edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length, E.bike_safety_
 set_biking_length(graph, edge_gdf)
 set_uv(graph, edge_gdf)
 
-ig_utils.export_to_graphml(graph, 'out_graph/graph_test.graphml', n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
+ig_utils.export_to_graphml(graph, 'out_graph/kumpula_noises_final.graphml', n_attrs=out_node_attrs, e_attrs=out_edge_attrs)

@@ -49,8 +49,8 @@ def set_default_and_na_edge_noises(graph: ig.Graph, data_extent: Polygon, log: L
 
 if (__name__ == '__main__'):
     log = Logger(printing=True, log_file='noise_graph_update.log', level='debug')
-    in_graph_file = 'data/test_graph.graphml'
-    out_graph_file = 'out_graph/test_graph_noises.graphml'
+    in_graph_file = 'data/kumpula.graphml'
+    out_graph_file = 'out_graph/kumpula_noises.graphml'
     data_extent_file = 'data/HMA.geojson'
     noise_csv_dir = 'out_csv/'
 

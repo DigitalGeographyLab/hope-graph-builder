@@ -20,7 +20,7 @@ class TestCreateTestOtpGraphData(unittest.TestCase):
     
     @unittest.skip('run before')
     def test_create_test_otp_graph_data(self):
-        test_area = gpd.read_file('data/test_area.geojson')['geometry'][0]
+        test_area = gpd.read_file('data/kumpula_aoi.geojson')['geometry'][0]
 
         e = pd.read_csv('data/edges.csv', sep=';')
         self.assertEqual(len(e), 1282306)
@@ -28,16 +28,14 @@ class TestCreateTestOtpGraphData(unittest.TestCase):
         e = gpd.GeoDataFrame(e, geometry=Edge.geometry.name, crs=CRS.from_epsg(4326))
         e['in_test_area'] = [self.intersects_polygon(line, test_area) for line in e[Edge.geometry.name]]
         e_filt = e.query('in_test_area == True').copy()
-        e_filt.drop(columns=['in_test_area']).to_csv('data/test_edges.csv', sep=';')
-        self.assertEqual(len(e_filt), 6314)
+        e_filt.drop(columns=['in_test_area']).to_csv('data/kumpula_edges.csv', sep=';')
         used_nodes = set(list(e_filt['node_orig_id'])+list(e_filt['node_dest_id']))
 
         n = pd.read_csv('data/nodes.csv', sep=';')
-        self.assertEqual(len(n), 474874)
         n['in_test_area'] = [True if id_otp in used_nodes else False for id_otp in n['id_otp']]
         n_filt = n.query('in_test_area == True').copy()
-        n_filt.drop(columns=['in_test_area']).to_csv('data/test_nodes.csv', sep=';')
-        self.assertEqual(len(n_filt), 3420)
+        n_filt.drop(columns=['in_test_area']).to_csv('data/kumpula_nodes.csv', sep=';')
+        self.assertEqual(len(n_filt), 8564)
 
 class TestOtp2IgraphImport(unittest.TestCase):
     
