@@ -74,6 +74,7 @@ class TestNoiseGraphJoin(unittest.TestCase):
     def tearDownClass(cls):
         os.remove('temp/test_graph_noises.graphml')
 
+    # @unittest.skip('run before')
     def test_edge_noise_join(self):
         graph = ig_utils.read_graphml('data/test_graph.graphml')
         edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length])
@@ -130,6 +131,10 @@ class TestNoiseGraphJoin(unittest.TestCase):
 
         for edge in graph.es:
             attrs = edge.attributes()
+
+            # check that edge IDs are correct
+            self.assertEqual(edge.index, attrs[E.id_ig.value])
+
             if isinstance(attrs[E.geometry.value], LineString):
                 # note: this will fail if some of the edges are outside the noise data extent
                 self.assertNotEqual(edge[E.noises.value], None)

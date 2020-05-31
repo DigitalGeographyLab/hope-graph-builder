@@ -25,10 +25,12 @@ class Node(Enum):
 class Edge(Enum):
    id_ig: int = 'ii'
    id_otp: str = 'io'
+   uv: tuple = 'uv' # source & target node ids as a tuple
    name_otp: str = 'no'
    geometry: LineString = 'geom'
    geom_wgs: LineString = 'geom_wgs'
    length: float = 'l'
+   length_b: float = 'lb'
    edge_class: str = 'ec'
    street_class: str = 'sc'
    is_stairs: bool = 'b_st'
@@ -54,14 +56,18 @@ def to_bool(value):
    return ast.literal_eval(value)
 def to_dict(value):
    return ast.literal_eval(value) if value != 'None' else None
+def to_tuple(value):
+   return ast.literal_eval(value)
 
 edge_attr_converters = {
     Edge.id_ig: to_int,
     Edge.id_otp: to_str,
+    Edge.uv: to_tuple,
     Edge.name_otp: to_str,
     Edge.geometry: to_geom,
     Edge.geom_wgs: to_geom,
     Edge.length: to_float,
+    Edge.length_b: to_float,
     Edge.edge_class: to_str,
     Edge.street_class: to_str,
     Edge.is_stairs: to_bool,
