@@ -96,7 +96,7 @@ def noise_graph_join(
     interpolated_samples = utils.aggregate_noise_values(interpolated_samples, prefer_syke=True)
 
     # combine sampling point dataframes to one
-    sampling_columns = [S.xy_id, S.n_road, S.n_train, S.n_tram, S.n_metro, S.n_max, S.n_max_sources, S.n_max_adj]
+    sampling_columns = [S.xy_id, S.road, S.train, S.tram, S.metro, S.n_max, S.n_max_sources, S.n_max_adj]
     normal_samples = normal_samples[sampling_columns]
     interpolated_samples = interpolated_samples[sampling_columns]
     concatenated_samples = pd.concat([normal_samples, interpolated_samples], ignore_index=True)
@@ -108,13 +108,13 @@ def noise_graph_join(
         log.error(f'found mismatch in sampling point count: {len(concatenated_samples.index)} != {initial_sampling_count}')
 
     final_samples = pd.merge(point_gdf, concatenated_samples, how='left', on=S.xy_id)
-    final_samples_gdf = gpd.GeoDataFrame(final_samples, crs=CRS.from_epsg(3879))
 
     if (len(final_samples.index) != len(point_gdf.index)):
         log.error(f'mismatch in row counts after merging sampled values to initial sampling points: {len(final_samples.index)} != {len(point_gdf.index)}')
 
     if (b_debug == True):
         log.info('exporting sampling points to gpkg')
+        final_samples_gdf = gpd.GeoDataFrame(final_samples, crs=CRS.from_epsg(3879))
         final_samples_gdf.drop(columns=[S.n_max_sources]).to_file(debug_gpkg, layer='final_noise_samples', driver='GPKG')
 
     edge_noises = utils.aggregate_noises_by_edge(final_samples, log)
@@ -123,7 +123,12 @@ def noise_graph_join(
         log.error(f'mismatch in final aggregated noise values by edges ({len(edge_noises.index)} != {len(gdf.index)})')
 
     log.info('all done')
-    return edge_noises
+    return edge_noises.rename(columns={ S.edge_id: E.id_ig.name })
+
+def export_edge_noise_csv(edge_noises: pd.DataFrame, out_dir: str):
+    max_id = edge_noises[E.id_ig.name].max()
+    csv_name = f'{max_id}_edge_noises.csv'
+    edge_noises.to_csv(out_dir + csv_name)
 
 if (__name__ == '__main__'):
     log = Logger(printing=True, log_file='noise_graph_join.log', level='debug')
@@ -140,7 +145,7 @@ if (__name__ == '__main__'):
     # read nodata zone: narrow area between noise surfaces of different municipalities
     nodata_layer = gpd.read_file('data/extents.gpkg', layer='municipal_boundaries')
 
-    edge_noise_df = noise_graph_join(
+    edge_noises = noise_graph_join(
         log = log,
         edge_gdf=edge_gdf,
         sampling_interval = 3,
@@ -149,3 +154,6 @@ if (__name__ == '__main__'):
         b_debug = False,
         debug_gpkg = 'debug/noise_join_debug.gpkg'
     )
+    
+    export_edge_noise_csv(edge_noises, 'out_csv/')
+    

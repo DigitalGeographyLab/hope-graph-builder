@@ -30,13 +30,13 @@ class Edge(enum.Enum):
    traversable_walking = 'b_tw'
    traversable_biking = 'b_tb'
    bike_safety_factor = 'bsf'
-   noises = 'n'
-   noise_source = 'ns'
-   noise_sources = 'nss'
+   noises = 'n' # nodata = None, no noises = {}
+   noise_source = 'ns' # nodata = None, no noises = ''
+   noise_sources = 'nss' # nodata = None, no noises = {}
 
 
 def to_str(value):
-    return str(value)
+    return str(value) if value != 'None' else None
 def to_int(value):
     return int(value)
 def to_float(value):
@@ -45,6 +45,8 @@ def to_geom(value):
     return wkt.loads(value)
 def to_bool(value):
    return ast.literal_eval(value)
+def to_dict(value):
+   return ast.literal_eval(value) if value != 'None' else None
 
 edge_attr_converters = {
     Edge.id_ig: to_int,
@@ -62,6 +64,9 @@ edge_attr_converters = {
     Edge.traversable_walking: to_bool,
     Edge.traversable_biking: to_bool,
     Edge.bike_safety_factor: to_float,
+    Edge.noises: to_dict,
+    Edge.noise_source: to_str,
+    Edge.noise_sources: to_dict,
 }
 
 node_attr_converters = {

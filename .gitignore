@@ -146,4 +146,6 @@ src/noise_data_preprocessing/noise_data/syke/
 src/noise_data_preprocessing/noise_data/espoo/
 src/noise_graph_join/data
 src/noise_graph_join/debug
+src/noise_graph_join/out_csv/
+src/noise_graph_join/out_graph/
 src/test/data/noise_data_processed.gpkg

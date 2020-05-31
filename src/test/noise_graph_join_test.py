@@ -72,7 +72,7 @@ class TestNoiseGraphJoin(unittest.TestCase):
     def test_edge_noise_join(self):
         graph = ig_utils.read_graphml('data/test_graph.graphml')
         edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length])
-        edge_gdf['edge_id'] = edge_gdf.index
+        edge_gdf[E.id_ig.name] = edge_gdf.index
         # read noise data
         noise_layer_names = [layer for layer in fiona.listlayers('data/noise_data_processed.gpkg')]
         noise_layers = { name: gpd.read_file('data/noise_data_processed.gpkg', layer=name) for name in noise_layer_names }
@@ -89,9 +89,9 @@ class TestNoiseGraphJoin(unittest.TestCase):
             nodata_layer = nodata_layer
         )
 
-        self.assertEqual(edge_noises['edge_id'].nunique(), 3522)
+        self.assertEqual(edge_noises[E.id_ig.name].nunique(), 3522)
 
-        edge_noises_df = pd.merge(edge_gdf, edge_noises, how='inner', on='edge_id')
+        edge_noises_df = pd.merge(edge_gdf, edge_noises, how='inner', on=E.id_ig.name)
         edge_noises_df['total_noise_len'] = [round(sum(noises.values()), 4) for noises in edge_noises_df['noises']]
 
         def validate_edge_noises(row):
@@ -103,7 +103,7 @@ class TestNoiseGraphJoin(unittest.TestCase):
         
         # test frequency of different main noise sources
         noise_sources = dict(Counter(list(edge_noises_df[E.noise_source.name])))
-        self.assertDictEqual(noise_sources, {'n_road': 2322, 'n_train': 1198, None: 2})
+        self.assertDictEqual(noise_sources, {'road': 2322, 'train': 1198, '': 2})
 
 if (__name__ == '__main__'):
     unittest.main()

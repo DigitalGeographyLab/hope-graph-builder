@@ -191,21 +191,21 @@ def aggregate_noise_values(sample_gdf, prefer_syke: bool=False) -> gpd.GeoDataFr
             if np.isfinite(row[col]): return row[col]
         return np.nan
 
-    sample_gdf[S.n_road] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, road_columns), axis=1)
-    sample_gdf[S.n_train] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, train_columns), axis=1)
-    sample_gdf[S.n_tram] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, tram_columns), axis=1)
-    sample_gdf[S.n_metro] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, metro_columns), axis=1)
+    sample_gdf[S.road] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, road_columns), axis=1)
+    sample_gdf[S.train] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, train_columns), axis=1)
+    sample_gdf[S.tram] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, tram_columns), axis=1)
+    sample_gdf[S.metro] = sample_gdf.apply(lambda row: get_first_non_nan_or_nan(row, metro_columns), axis=1)
 
     # 2) add maximum noise value among rail noise sources (TODO decide if this is needed after all?)
-    rail_columns = [S.n_train, S.n_tram, S.n_metro]
-    sample_gdf[S.n_rail] = sample_gdf[rail_columns].max(axis=1)
+    rail_columns = [S.train, S.tram, S.metro]
+    sample_gdf[S.rail] = sample_gdf[rail_columns].max(axis=1)
 
     # 3) add maximum noise value among different sources
     def get_max_noise_value(row, columns: list) -> float:
         values = [row[col] for col in columns if np.isfinite(row[col])]
         return np.nanmax(values) if values else np.nan
 
-    noise_columns = [S.n_road, S.n_train, S.n_tram, S.n_metro]
+    noise_columns = [S.road, S.train, S.tram, S.metro]
     sample_gdf[S.n_max] = sample_gdf.apply(lambda row: get_max_noise_value(row, noise_columns), axis=1)
 
     # 4) add name(s) of noise sources of maximum noise values
@@ -263,15 +263,15 @@ def aggregate_noises_by_edge(sample_gdf: gpd.GeoDataFrame, log: Logger) -> pd.Da
     edge_noises[Edge.noises.name] = edge_noises.apply(lambda row: calculate_noise_exposures(row), axis=1)
 
     def get_main_noise_source(row) -> str:
-        """Returns the most frequent noise source of the edge or None if it does not have noise sources.
+        """Returns the most frequent noise source of the edge or '' if it does not have noise sources.
         """
         if row['sources']:
             return mode(row['sources'])
         else:
-            return None
+            return ''
 
     def calculate_noise_source_counts(row) -> dict:
-        """e.g. -> { 'road': 3, 'train', 6 }"""
+        """e.g. -> { 'road': 3, 'train': 6 }"""
         if row['sources']:
             sources = Counter(row['sources']).keys()
             counts = Counter(row['sources']).values()
