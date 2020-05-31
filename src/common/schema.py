@@ -1,10 +1,18 @@
-import enum
-import ast
+from enum import Enum
+from typing import Dict
 from shapely import wkt
+from shapely.geometry import LineString
+import ast
 
 version = 1.0
 
-class Node(enum.Enum):
+class NoiseSource(Enum):
+    road = 'road'
+    train = 'train'
+    metro = 'metro'
+    tram = 'tram'
+
+class Node(Enum):
    id_ig = 'ii'
    id_otp = 'io'
    name_otp = 'no'
@@ -14,26 +22,25 @@ class Node(enum.Enum):
    traversable_biking = 'b_tb'
    traffic_light = 'tl'
 
-class Edge(enum.Enum):
-   id_ig = 'ii'
-   id_otp = 'io'
-   name_otp = 'no'
-   geometry = 'geom'
-   geom_wgs = 'geom_wgs'
-   length = 'l'
-   edge_class = 'ec'
-   street_class = 'sc'
-   is_stairs = 'b_st'
-   is_no_thru_traffic = 'b_ntt'
-   allows_walking = 'b_aw'
-   allows_biking = 'b_ab'
-   traversable_walking = 'b_tw'
-   traversable_biking = 'b_tb'
-   bike_safety_factor = 'bsf'
-   noises = 'n' # nodata = None, no noises = {}
-   noise_source = 'ns' # nodata = None, no noises = ''
-   noise_sources = 'nss' # nodata = None, no noises = {}
-
+class Edge(Enum):
+   id_ig: int = 'ii'
+   id_otp: str = 'io'
+   name_otp: str = 'no'
+   geometry: LineString = 'geom'
+   geom_wgs: LineString = 'geom_wgs'
+   length: float = 'l'
+   edge_class: str = 'ec'
+   street_class: str = 'sc'
+   is_stairs: bool = 'b_st'
+   is_no_thru_traffic: bool = 'b_ntt'
+   allows_walking: bool = 'b_aw'
+   allows_biking: bool = 'b_ab'
+   traversable_walking: bool = 'b_tw'
+   traversable_biking: bool = 'b_tb'
+   bike_safety_factor: float = 'bsf'
+   noises: Dict[int, float] = 'n' # nodata = None, no noises = {}
+   noise_source: NoiseSource = 'ns' # nodata = None, no noises = ''
+   noise_sources: Dict[NoiseSource, int] = 'nss' # nodata = None, no noises = {}
 
 def to_str(value):
     return str(value) if value != 'None' else None

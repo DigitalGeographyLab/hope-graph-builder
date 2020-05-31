@@ -74,7 +74,6 @@ class TestNoiseGraphJoin(unittest.TestCase):
     def tearDownClass(cls):
         os.remove('temp/test_graph_noises.graphml')
 
-    @unittest.skip('run before')
     def test_edge_noise_join(self):
         graph = ig_utils.read_graphml('data/test_graph.graphml')
         edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length])
