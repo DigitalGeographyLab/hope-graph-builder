@@ -5,7 +5,7 @@ from common.schema import Edge as E, Node as N
 
 graph = ig_utils.read_graphml('data/kumpula_noises.graphml')
 
-out_node_attrs = [N.geometry, N.geom_wgs]
+out_node_attrs = [N.geometry]
 out_edge_attrs = [E.uv, E.geometry, E.geom_wgs, E.length, E.length_b, E.noises, E.noise_source]
 
 def set_biking_length(graph, edge_gdf):
