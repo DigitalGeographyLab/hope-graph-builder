@@ -2,12 +2,11 @@ from enum import Enum
 from typing import List, Set, Dict, Tuple
 import geopandas as gpd
 import igraph as ig
-from igraph import Graph
 from pyproj import CRS
 from common.schema import Node, Edge, edge_attr_converters, node_attr_converters
 from common.logger import Logger
 
-def get_edge_dicts(G: Graph, attrs: List[Enum] = [Edge.geometry]) -> list:
+def get_edge_dicts(G: ig.Graph, attrs: List[Enum] = [Edge.geometry]) -> list:
     """Returns list of all edges of a graph as dictionaries with the specified attributes. 
     """
     edge_dicts = []
@@ -20,7 +19,7 @@ def get_edge_dicts(G: Graph, attrs: List[Enum] = [Edge.geometry]) -> list:
         edge_dicts.append(edge_dict)
     return edge_dicts
 
-def get_edge_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Edge.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
+def get_edge_gdf(G: ig.Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Edge.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
     """Returns edges of a graph as pandas GeoDataFrame. 
     """
     edge_dicts = []
@@ -40,7 +39,7 @@ def get_edge_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attr
 
     return gpd.GeoDataFrame(edge_dicts, index=ids, crs=CRS.from_epsg(epsg))
 
-def get_node_gdf(G: Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Node.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
+def get_node_gdf(G: ig.Graph, id_attr: Enum = None, attrs: List[Enum] = [], ig_attrs: List[str] = [], geom_attr: Enum = Node.geometry, epsg: int = 3879) -> gpd.GeoDataFrame:
     """Returns nodes of a graph as pandas GeoDataFrame. 
     """
     node_dicts = []
@@ -78,7 +77,7 @@ def read_graphml(graph_file: str, log: Logger = None) -> ig.Graph:
             if (log is not None): log.warning(f'failed to read edge attribute {attr}')
     return G
 
-def export_to_graphml(G: Graph, graph_file: str, n_attrs=[], e_attrs=[]):
+def export_to_graphml(G: ig.Graph, graph_file: str, n_attrs=[], e_attrs=[]):
     Gc = G.copy()
     if (n_attrs == []):
         for attr in Node:
