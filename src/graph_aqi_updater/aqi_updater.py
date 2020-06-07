@@ -41,11 +41,12 @@ class AqiUpdater():
         return b_available
 
     def create_aqi_update_csv(self, aqi_tif_name: str) -> None:
-        edge_aqi_df = self.__sample_aqi_to_point_gdf(self.__aqi_dir + aqi_tif_name)
         self.wip_aqi_csv = self.__get_aqi_csv_name(aqi_tif_name)
+        aqi_tif_file = self.__aqi_dir + aqi_tif_name
+        edge_aqi_df = self.__sample_aqi_to_point_gdf(aqi_tif_file)
         # export sampled aqi values to csv
         final_edge_aqi_samples = self.__combine_final_sample_df(edge_aqi_df)
-        final_edge_aqi_samples[[E.id_ig.name, 'aqi']].to_csv(self.__aqi_dir + self.wip_aqi_csv, index=False)
+        final_edge_aqi_samples.to_csv(self.__aqi_dir + self.wip_aqi_csv, index=False)
         self.log.info('exported edge_aqi_csv '+ self.wip_aqi_csv)
         self.latest_aqi_csv = self.wip_aqi_csv
 
@@ -61,12 +62,9 @@ class AqiUpdater():
         """
         edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig], geom_attr=E.geom_wgs)
         # filter out edges with null geometry
-        self.log.info(f'edge gdf len: {len(edge_gdf)}')
         edge_gdf = edge_gdf[edge_gdf[E.geom_wgs.name].apply(lambda x: isinstance(x, LineString))]
-        self.log.info(f'edge gdf len: {len(edge_gdf)}')
         edge_gdf['point_geom'] = [geom.interpolate(0.5, normalized=True) for geom in edge_gdf[E.geom_wgs.name]]
         edge_gdf['lat_lon_id'] = [f'{str(round(geom.x, 7))}_{str(round(geom.y, 7))}' for geom in edge_gdf['point_geom']]
-        self.log.info(f"uniq geom count: {edge_gdf['lat_lon_id'].nunique()}")
         return edge_gdf
 
     def __sample_aqi_to_point_gdf(self, aqi_tif_file: str) -> str:
@@ -97,6 +95,7 @@ class AqiUpdater():
         return gdf
 
     def __combine_final_sample_df(self, sampling_gdf) -> gpd.GeoDataFrame:
+        # TODO filter out rows with missing AQI
         edge_gdf_copy = self.__edge_gdf[[E.id_ig.name, 'lat_lon_id']].copy()
         final_sample_df = pd.merge(edge_gdf_copy, sampling_gdf[['lat_lon_id', 'aqi']], on='lat_lon_id', how='left')
         return final_sample_df[[E.id_ig.name, 'aqi']]
@@ -111,10 +110,10 @@ class AqiUpdater():
         def validate_aqi_exp(aqi):
             if (not isinstance(aqi, float)):
                 return 4
-            elif (aqi == 0.0): # aqi is just missing
-                return 1
             elif (aqi < 0):
                 return 3
+            elif (aqi == 0.0): # aqi is just missing
+                return 1
             else:
                 return 0
 
@@ -129,7 +128,7 @@ class AqiUpdater():
             edge_gdf_copy.drop(columns=['uvkey', 'center_wgs']).to_file('debug/debug.gpkg', layer='edge_centers_wgs', driver="GPKG")
         
         if (row_count == aqi_ok_count):
-            self.log.info('missing aqi count: '+ str(len(edge_gdf_copy[edge_gdf_copy['aqi_validity'] == 1].index)))
+            self.log.info('invalid aqi count: '+ str(len(edge_gdf_copy[edge_gdf_copy['aqi_validity'] == 1].index)))
             return True
         else:
             error_count = row_count - aqi_ok_count

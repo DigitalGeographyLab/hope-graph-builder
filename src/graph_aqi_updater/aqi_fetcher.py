@@ -96,7 +96,7 @@ class AqiFetcher:
         aqi_tif_name = self.__fillna_in_raster(aqi_tif_name, na_val=1.0) 
         self.latest_aqi_tif = aqi_tif_name
 
-    def finish_aqi_processing_cycle(self) -> None:
+    def finish_aqi_fetch(self) -> None:
         self.__remove_temp_files()
         self.__remove_old_aqi_files()
         self.__reset_wip_aqi_tif_name()
@@ -280,4 +280,4 @@ class AqiFetcher:
                     pass
         self.log.info('removed '+ str(rm_count) +' old edge aqi tif files')
         if (error_count > 0):
-            self.log.warning('could not remove '+ error_count +' old edge aqi tif files')
+            self.log.warning('could not remove '+ error_count +' old aqi tif files')

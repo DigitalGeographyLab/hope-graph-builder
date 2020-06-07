@@ -24,7 +24,7 @@ def fetch_process_aqi_data():
         log.error(f'failed to process AQI data to {aqi_fetcher.wip_aqi_tif}, retrying in 30s')
         time.sleep(30)
     finally:
-        aqi_fetcher.finish_aqi_processing_cycle()
+        aqi_fetcher.finish_aqi_fetch()
 
 def create_aqi_update_csv():
     try:
