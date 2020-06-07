@@ -2,6 +2,7 @@ import sys
 sys.path.append('..')
 import os
 import fiona
+import math
 from pyproj import CRS
 import numpy as np
 import pandas as pd
@@ -136,6 +137,11 @@ def noise_graph_join(
     log.info('all done')
     return edge_noises.rename(columns={ S.edge_id: E.id_ig.name })
 
+def get_previously_processed_max_id(csv_dir: str):
+    csv_files = os.listdir(csv_dir)
+    max_ids = [int(name.split('_')[0]) for name in csv_files]
+    return max(max_ids) if max_ids else 0
+
 def export_edge_noise_csv(edge_noises: pd.DataFrame, out_dir: str):
     max_id = edge_noises[E.id_ig.name].max()
     csv_name = f'{max_id}_edge_noises.csv'
@@ -146,6 +152,7 @@ if (__name__ == '__main__'):
     graph = ig_utils.read_graphml('data/kumpula.graphml')
     log.info(f'read graph of {graph.ecount()} edges')
     edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig])
+    edge_gdf = edge_gdf.sort_values(E.id_ig.name)
 
     # read noise data
     noise_layer_names = [layer for layer in fiona.listlayers('data/noise_data_processed.gpkg')]
@@ -156,15 +163,31 @@ if (__name__ == '__main__'):
     # read nodata zone: narrow area between noise surfaces of different municipalities
     nodata_layer = gpd.read_file('data/extents.gpkg', layer='municipal_boundaries')
 
-    edge_noises = noise_graph_join(
-        log = log,
-        edge_gdf=edge_gdf,
-        sampling_interval = 3,
-        noise_layers = noise_layers,
-        nodata_layer = nodata_layer,
-        b_debug = False,
-        debug_gpkg = 'debug/noise_join_debug.gpkg'
-    )
-    
-    export_edge_noise_csv(edge_noises, 'out_csv/')
-    
+    # process chunks of edges together by dividing gdf to parts
+    processing_size = 50000
+    split_gdf_count = math.ceil(len(edge_gdf)/processing_size)
+    gdfs = np.array_split(edge_gdf, split_gdf_count)
+
+    # get max id of previously processed edges
+    max_processed_id = get_previously_processed_max_id('out_csv/')
+    if (max_processed_id > 0):
+        log.info(f'found previously processed edges up to edge id {max_processed_id}')
+
+    for idx, gdf in enumerate(gdfs):
+
+        if (gdf[E.id_ig.name].max() <= max_processed_id):
+            log.info(f'skipping {idx+1} of {len(gdfs)} edge gdfs (processed before)')
+            continue
+        else:
+            log.info(f'processing {idx+1} of {len(gdfs)} edge gdfs')
+
+        edge_noises = noise_graph_join(
+            log = log,
+            edge_gdf=gdf,
+            sampling_interval = 3,
+            noise_layers = noise_layers,
+            nodata_layer = nodata_layer,
+            b_debug = False,
+            debug_gpkg = 'debug/noise_join_debug.gpkg'
+        )
+        export_edge_noise_csv(edge_noises, 'out_csv/')
