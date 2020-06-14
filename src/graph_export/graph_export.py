@@ -9,6 +9,7 @@ out_node_attrs = [N.geometry]
 out_edge_attrs = [E.id_ig, E.uv, E.geometry, E.geom_wgs, E.length, E.length_b, E.noises, E.noise_source]
 
 def set_biking_length(graph, edge_gdf):
+    # TODO use walking speed when allows_biking=False or traversable_biking=False
     for edge in edge_gdf.itertuples():
         length = getattr(edge, E.length.name)
         biking_length = length * getattr(edge, E.bike_safety_factor.name) if length != 0.0 else 0.0
