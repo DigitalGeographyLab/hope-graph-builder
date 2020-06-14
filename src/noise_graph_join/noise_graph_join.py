@@ -149,7 +149,7 @@ def export_edge_noise_csv(edge_noises: pd.DataFrame, out_dir: str):
 
 if (__name__ == '__main__'):
     log = Logger(printing=True, log_file='noise_graph_join.log', level='debug')
-    graph = ig_utils.read_graphml('data/kumpula.graphml')
+    graph = ig_utils.read_graphml('data/hma.graphml')
     log.info(f'read graph of {graph.ecount()} edges')
     edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig])
     edge_gdf = edge_gdf.sort_values(E.id_ig.name)
