@@ -1,7 +1,7 @@
 import sys
 sys.path.append('..')
 import common.igraph as ig_utils
-from common.schema import Edge as E, Node as N
+from common.igraph import Edge as E, Node as N
 
 graph = ig_utils.read_graphml('data/kumpula_noises.graphml')
 

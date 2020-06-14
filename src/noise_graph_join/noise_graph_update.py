@@ -6,7 +6,7 @@ from pyproj import CRS
 from shapely.geometry import Polygon, LineString
 import common.igraph as ig_utils
 from common.logger import Logger
-from common.schema import Edge as E
+from common.igraph import Edge as E
 import common.geometry as geom_utils
 import igraph as ig
 import pandas as pd

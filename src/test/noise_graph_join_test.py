@@ -12,7 +12,7 @@ import geopandas as gpd
 import noise_graph_join.utils as utils
 import common.igraph as ig_utils
 from noise_graph_join import noise_graph_join, noise_graph_update
-from common.schema import Edge as E
+from common.igraph import Edge as E
 from common.logger import Logger
 import common.geometry as geom_utils
 from shapely.geometry import LineString, Polygon, Point, GeometryCollection

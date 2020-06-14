@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from statistics import mode
 from collections import Counter
-from common.schema import Edge
+from common.igraph import Edge
 from common.logger import Logger
 from shapely.geometry import LineString, Point, GeometryCollection
 from schema import SamplingGdf as S

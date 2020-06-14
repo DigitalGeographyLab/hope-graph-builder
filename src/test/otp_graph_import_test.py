@@ -7,7 +7,7 @@ import pandas as pd
 import geopandas as gpd
 import shapely.wkt
 from pyproj import CRS
-from common.schema import Node, Edge
+from common.igraph import Node, Edge
 from common.logger import Logger
 import common.igraph as ig_utils
 from otp_graph_import.otp_graph_import import convert_otp_graph_to_igraph

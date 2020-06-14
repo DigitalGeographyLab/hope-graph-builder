@@ -10,7 +10,7 @@ import geopandas as gpd
 import igraph as ig
 import shapely.wkt
 from pyproj import CRS
-from common.schema import Node, Edge
+from common.igraph import Node, Edge
 import common.igraph as ig_utils
 import common.geometry as geom_utils
 from common.logger import Logger

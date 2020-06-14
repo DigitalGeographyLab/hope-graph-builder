@@ -10,7 +10,7 @@ import geopandas as gpd
 from common.logger import Logger
 import utils as utils
 import common.igraph as ig_utils
-from common.schema import Edge as E, Node as N
+from common.igraph import Edge as E, Node as N
 from schema import SamplingGdf as S
 from typing import List, Set, Dict, Tuple
 
