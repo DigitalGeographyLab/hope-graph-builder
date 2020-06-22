@@ -1,6 +1,6 @@
 # hope-graph-builder
 
-This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs exported from OpenTripPlanner. The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking and cycling that finds routes with less traffic noise and air pollution. 
+This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs [created and exported with OpenTripPlanner](https://github.com/DigitalGeographyLab/OpenTripPlanner/pull/1). The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking and cycling that finds routes with less traffic noise and air pollution. 
 
 ## Features
 * [otp_graph_import.py](src/otp_graph_import/otp_graph_import.py)
