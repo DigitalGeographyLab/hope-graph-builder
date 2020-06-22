@@ -1,6 +1,6 @@
 # hope-graph-builder
 
-This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs exported from OpenTripPlanner. The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking and cycling that suggests routes with less traffic noise and air pollution. 
+This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs exported from OpenTripPlanner. The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking and cycling that finds routes with less traffic noise and air pollution. 
 
 ## Features
 * [otp_graph_import.py](src/otp_graph_import/otp_graph_import.py)
@@ -13,7 +13,10 @@ This repository contains utilities for importing and processing [OpenStreetMap](
     * Preprocess noise data from different sources to common schema
 * [noise_graph_join.py](src/noise_graph_join/noise_graph_join.py)
     * Join environmental noise data to graph features to enable exposure-based routing
-    * Interpolate noise values for edges missing them
+    * Interpolate noise values for edges missing them (on municipal boundaries)
+* [graph_export.py](src/graph_export/graph_export.py)
+    * Finalize graph by persisting only relevant attributes
+    * Calculate biking impedances ("adjusted lengths") by bike safety factors
 
 ## Tech
 * Python 3.6
@@ -23,8 +26,8 @@ This repository contains utilities for importing and processing [OpenStreetMap](
 
 ## Installation
 ```
-$ git clone git@github.com:DigitalGeographyLab/hope-graph-tools.git
-$ cd hope-graph-tools/src
+$ git clone git@github.com:DigitalGeographyLab/hope-graph-builder.git
+$ cd hope-graph-builder/src
 $ conda env create -f env_graph_tools.yml
 ```
 
