@@ -80,6 +80,8 @@ def create_geojson(graph: ig.Graph) -> dict:
     df[E.noises.name] = df.apply(lambda x: __update_db_40_exp(x[E.noises.name], x[E.length.name]), axis=1)
     df['db'] = df.apply(lambda x: __get_mean_noise_level(x[E.noises.name], x[E.length.name]), axis=1)
     df['db'] = [__get_noise_range(db) for db in df['db']]
+    # simplify geometries a bit, TODO think about if this is needed (as decrease in file size is small)
+    df[E.geom_wgs.name] = [geom.simplify(0.00005, preserve_topology=True) for geom in df[E.geom_wgs.name]]
     df['coords'] = [__get_coord_list(geom) for geom in df[E.geom_wgs.name]]
     return __as_geojson_feature_collection(df[['coords', 'db']].to_dict('records'))
 
