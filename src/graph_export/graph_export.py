@@ -2,9 +2,13 @@ import sys
 sys.path.append('..')
 import common.igraph as ig_utils
 from common.igraph import Edge as E, Node as N
+import utils
 
-graph = ig_utils.read_graphml('data/hma.graphml')
-out_graph = 'out_graph/hma.graphml'
+graph_name = 'kumpula'
+
+graph = ig_utils.read_graphml(f'data/{graph_name}.graphml')
+out_graph = f'out_graph/{graph_name}.graphml'
+out_geojson = f'out_graph/{graph_name}.geojson'
 
 out_node_attrs = [N.geometry]
 out_edge_attrs = [E.id_ig, E.uv, E.id_way, E.geometry, E.geom_wgs, E.length, E.length_b, E.noises, E.noise_source]
@@ -31,5 +35,9 @@ edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length, E.bike_safety_
 set_biking_lengths(graph, edge_gdf)
 set_uv(graph, edge_gdf)
 set_way_ids(graph, edge_gdf)
+
+# create geojson for vector tiles
+geojson = utils.create_geojson(graph)
+utils.write_geojson(geojson, out_geojson)
 
 ig_utils.export_to_graphml(graph, out_graph, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
