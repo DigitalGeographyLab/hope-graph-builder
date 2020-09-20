@@ -4,7 +4,7 @@ import common.igraph as ig_utils
 from common.igraph import Edge as E, Node as N
 import utils
 
-graph_name = 'kumpula'
+graph_name = 'hma'
 
 graph = ig_utils.read_graphml(f'data/{graph_name}.graphml')
 out_graph = f'out_graph/{graph_name}.graphml'
@@ -38,6 +38,6 @@ set_way_ids(graph, edge_gdf)
 
 # create geojson for vector tiles
 geojson = utils.create_geojson(graph)
-utils.write_geojson(geojson, out_geojson)
+utils.write_geojson(geojson, out_geojson, overwrite=True)
 
 ig_utils.export_to_graphml(graph, out_graph, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)

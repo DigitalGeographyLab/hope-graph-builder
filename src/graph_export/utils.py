@@ -91,8 +91,8 @@ def write_geojson(geojson_dict: dict, out_file: str, overwrite: bool=False) -> N
     # json_text = json.dumps(geojson_dict, indent=1)
 
     # begin FeatureCollection wrapper
-    the_file = open(out_file, 'w')
-    the_file.write('{ "type": "FeatureCollection", "features": [\n')
+    the_file = open(out_file, 'a')
+    the_file.write('{"type":"FeatureCollection","features":[\n')
     the_file.close()
 
     write_line_delimited_geojson(geojson_dict, out_file)
@@ -105,8 +105,11 @@ def write_geojson(geojson_dict: dict, out_file: str, overwrite: bool=False) -> N
 def write_line_delimited_geojson(geojson_dict: dict, out_file: str, overwrite: bool=False) -> None:
     if overwrite and os.path.isfile(out_file):
         os.remove(out_file)
-    separator = '\n'
+    separator = ',\n'
     the_file = open(out_file, 'a')
-    for feature in geojson_dict['features']:
+    for idx, feature in enumerate(geojson_dict['features']):
+        if idx == (len(geojson_dict['features']) - 1):
+            separator = '\n'
         the_file.write(json.dumps(feature, separators=(',', ':')) + separator)
+
     the_file.close()
