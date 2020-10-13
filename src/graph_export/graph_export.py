@@ -8,6 +8,7 @@ graph_name = 'hma'
 
 graph = ig_utils.read_graphml(f'data/{graph_name}.graphml')
 out_graph = f'out_graph/{graph_name}.graphml'
+out_geojson_noise = f'out_graph/{graph_name}_noise.geojson'
 out_geojson = f'out_graph/{graph_name}.geojson'
 
 out_node_attrs = [N.geometry]
@@ -38,6 +39,7 @@ set_way_ids(graph, edge_gdf)
 
 # create geojson for vector tiles
 geojson = utils.create_geojson(graph)
-utils.write_geojson(geojson, out_geojson, overwrite=True)
+utils.write_geojson(geojson, out_geojson, overwrite=True, id_attr=True)
+utils.write_geojson(geojson, out_geojson_noise, overwrite=True, db_prop=True)
 
 ig_utils.export_to_graphml(graph, out_graph, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
