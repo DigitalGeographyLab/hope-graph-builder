@@ -1,8 +1,6 @@
 from typing import List, Set, Dict, Tuple
 import sys
 sys.path.append('..')
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 from shapely.geometry import Point, LineString
 import numpy as np
 import pandas as pd

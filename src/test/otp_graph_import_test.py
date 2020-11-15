@@ -41,14 +41,14 @@ class TestOtp2IgraphImport(unittest.TestCase):
     
     @classmethod
     def tearDownClass(cls):
-        os.remove('test_graph.graphml')
+        os.remove('temp/test_graph.graphml')
 
     def test_otp_2_igraph_import(self):
         graph = convert_otp_graph_to_igraph(
             node_csv_file = 'data/test_nodes.csv',
             edge_csv_file = 'data/test_edges.csv',
             hma_poly_file = 'data/HMA.geojson',
-            igraph_out_file = 'test_graph.graphml',
+            igraph_out_file = 'temp/test_graph.graphml',
             b_export_otp_data_to_gpkg = False,
             b_export_decomposed_igraphs_to_gpkg = False,
             b_export_final_graph_to_gpkg = False,
@@ -60,7 +60,7 @@ class TestOtp2IgraphImport(unittest.TestCase):
         self.assertEqual(graph.vcount(), 1328)
     
     def test_read_igraph(self):
-        graph = ig_utils.read_graphml('test_graph.graphml', log=Logger(printing=True))
+        graph = ig_utils.read_graphml('temp/test_graph.graphml', log=Logger(printing=True))
         self.assertEqual(graph.ecount(), 3702)
         self.assertEqual(graph.vcount(), 1328)
         attr_names = list(graph.vs[0].attributes().keys())
@@ -98,6 +98,26 @@ class TestOtp2IgraphImport(unittest.TestCase):
             self.assertIsInstance(attrs[Edge.traversable_walking.value], bool)
             self.assertIsInstance(attrs[Edge.traversable_biking.value], bool)
             self.assertIsInstance(attrs[Edge.bike_safety_factor.value], float)
+
+    def test_graph_to_gdf(self):
+        graph = ig_utils.read_graphml('data/test_graph.graphml', log=Logger(printing=True))
+        # test read graph to wgs gdf
+        gdf = ig_utils.get_edge_gdf(
+            graph, 
+            id_attr=Edge.id_ig, 
+            attrs=[Edge.length], 
+            geom_attr=Edge.geom_wgs)
+        gdf['geom_length'] = [geom.length for geom in gdf[Edge.geom_wgs.name]]
+        self.assertAlmostEqual(gdf['geom_length'].mean(), 0.000429, 6)
+        # test read to projected gdf
+        gdf = ig_utils.get_edge_gdf(
+            graph, 
+            id_attr=Edge.id_ig, 
+            attrs=[Edge.length], 
+            geom_attr=Edge.geometry)
+        gdf['geom_length'] = [geom.length for geom in gdf[Edge.geometry.name]]
+        self.assertAlmostEqual(gdf['geom_length'].mean(), 31.65, 2)
+
 
 if (__name__ == '__main__'):
     unittest.main()

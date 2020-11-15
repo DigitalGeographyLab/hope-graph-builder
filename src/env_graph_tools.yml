@@ -8,8 +8,6 @@ dependencies:
   - pytest
   - owslib
   - requests
-  - jupyterlab
-  - apscheduler
   - geopandas
   - python-igraph
   - boto3
