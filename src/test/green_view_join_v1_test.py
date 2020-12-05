@@ -32,7 +32,7 @@ def gvi_list_by_edge_id(edge_gdf, point_gvi_gdf) -> Dict[int, List[float]]:
 
 def test_get_point_gvi_list_by_edges(gvi_list_by_edge_id):
     assert isinstance(gvi_list_by_edge_id, dict)
-    assert len(gvi_list_by_edge_id) == 1730
+    assert len(gvi_list_by_edge_id) == 1808
     for edge_id, gvi_list in gvi_list_by_edge_id.items():
         assert isinstance(edge_id, int)
         assert isinstance(gvi_list, list)

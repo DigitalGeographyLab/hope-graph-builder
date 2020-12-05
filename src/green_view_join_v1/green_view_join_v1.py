@@ -24,14 +24,14 @@ def get_point_gvi_list_by_edge_id(
     edge_gdf: GeoDataFrame,
     point_gvi_gdf: GeoDataFrame
 ) -> Dict[int, List[float]]:
-    """Returns a dictionary of lists of point GVI values by edge id. All GVI point values within 25m from edge
+    """Returns a dictionary of lists of point GVI values by edge id. All GVI point values within 30m from edge
     geomtry will be included in the list. 
     """
 
     gvi_points = point_gvi_gdf[['geometry', 'GVI']].copy()
 
-    edge_gdf['geom_b_25'] = [geom.buffer(25) for geom in edge_gdf['geometry']]
-    edge_gdf = edge_gdf.set_geometry('geom_b_25')
+    edge_gdf['geom_b_30'] = [geom.buffer(30) for geom in edge_gdf['geometry']]
+    edge_gdf = edge_gdf.set_geometry('geom_b_30')
 
     edge_g_points = gpd.sjoin(edge_gdf, gvi_points, how='inner', op='intersects')
     g_points_by_edge_id = edge_g_points.groupby(E.id_ig.name)
@@ -42,7 +42,7 @@ def get_point_gvi_list_by_edge_id(
 
     log.info(f'Found GVI point samples for {sample_ratio(len(edge_gdf), len(gvi_list_by_edge_id))} % edges')
 
-    edge_gdf.drop(columns=['geom_b_25'], inplace=True)
+    edge_gdf.drop(columns=['geom_b_30'], inplace=True)
     return gvi_list_by_edge_id
 
 
