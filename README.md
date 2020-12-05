@@ -12,11 +12,11 @@ This repository contains utilities for importing and processing [OpenStreetMap](
 * [noise_data_preprocessing.py](src/noise_data_preprocessing/noise_data_preprocessing.py)
     * Preprocess noise data from different sources to common schema
 * [noise_graph_join.py](src/noise_graph_join/noise_graph_join.py)
-    * Join environmental noise data to graph features to enable exposure-based routing
+    * Join environmental noise data to graph features to enable noise exposure based routing
     * Interpolate noise values for edges missing them (on municipal boundaries)
 * [graph_export.py](src/graph_export/graph_export.py)
-    * Finalize graph by persisting only relevant attributes
     * Calculate biking impedances ("adjusted lengths") by bike safety factors
+    * Finalize graph for Green Paths route planner by exporting only relevant attributes
 
 ## Tech
 * Python 3.6
@@ -30,11 +30,14 @@ $ git clone git@github.com:DigitalGeographyLab/hope-graph-builder.git
 $ cd hope-graph-builder/src
 $ conda env create -f env_graph_tools.yml
 ```
+## Materials
+https://doi.org/10.1016/j.dib.2020.105601 (https://www.sciencedirect.com/science/article/pii/S2352340920304959)
 
 ## Running the tests
 ```
 $ conda activate graph-tools
 $ cd src/test
+$ python -m pytest green_view_join_v1_test.py -v
 $ python otp_graph_import_test.py
 $ python noise_graph_join_test.py
 ```
