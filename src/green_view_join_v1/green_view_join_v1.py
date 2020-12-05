@@ -7,7 +7,7 @@ import math
 from common.logger import Logger
 import common.igraph as ig_utils
 from common.igraph import Edge as E
-from data.fetch_land_cover import fetch_hsy_vegetation_layers
+from fetch_land_cover import get_vegetation_layers
 
 
 def load_point_gvi_gdf(filepath: str) -> GeoDataFrame:
@@ -84,14 +84,14 @@ def add_mean_point_gvi(
 
 if __name__ == '__main__':
     log = Logger(printing=True, log_file=r'green_view_join_v1.log', level='debug')
-    land_cover_cache_gpkg = r'data/land_cover_cache.gpkg'
+    land_cover_layers_gpkg = r'data/land_cover_cache.gpkg'
 
     # load GVI points from GPKG
     point_gvi_gdf_file = r'data/greenery_points.gpkg'
     point_gvi_gdf = load_point_gvi_gdf(point_gvi_gdf_file)
 
     # load land cover from WFS
-    land_cover = fetch_hsy_vegetation_layers(log, land_cover_cache_gpkg)
+    vegetation_layers = get_vegetation_layers(log, land_cover_layers_gpkg)
     
     # load street network graph froM GraphML
     graph = ig_utils.read_graphml(r'graph_in/kumpula.graphml')
