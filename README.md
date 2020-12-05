@@ -14,12 +14,21 @@ This repository contains utilities for importing and processing [OpenStreetMap](
 * [noise_graph_join.py](src/noise_graph_join/noise_graph_join.py)
     * Join environmental noise data to graph features to enable noise exposure based routing
     * Interpolate noise values for edges missing them (on municipal boundaries)
+* [green_view_join_v1.py](src/green_view_join_v1/green_view_join_v1.py)
+    * Join street level Green View Index (GVI) values from GVI point data and land cover layers
 * [graph_export.py](src/graph_export/graph_export.py)
     * Calculate biking impedances ("adjusted lengths") by bike safety factors
     * Finalize graph for Green Paths route planner by exporting only relevant attributes
 
+## Materials
+* [SYKE - Traffic noise modelling data from Helsinki urban region](https://www.syke.fi/en-US/Open_information/Spatial_datasets/Downloadable_spatial_dataset#E)
+* [Traffic noise zones in Helsinki 2017](https://hri.fi/data/en_GB/dataset/helsingin-kaupungin-meluselvitys-2017)
+* [OpenStreetMap](https://www.openstreetmap.org/about/)
+* [Green View Index (GVI) point data](https://doi.org/10.1016/j.dib.2020.105601)
+* [Land cover data](https://hri.fi/data/fi/dataset/paakaupunkiseudun-maanpeiteaineisto)
+
 ## Tech
-* Python 3.6
+* Python 3.8
 * igraph
 * GeoPandas
 * Shapely
@@ -30,8 +39,6 @@ $ git clone git@github.com:DigitalGeographyLab/hope-graph-builder.git
 $ cd hope-graph-builder/src
 $ conda env create -f env_graph_tools.yml
 ```
-## Materials
-https://doi.org/10.1016/j.dib.2020.105601 (https://www.sciencedirect.com/science/article/pii/S2352340920304959)
 
 ## Running the tests
 ```
