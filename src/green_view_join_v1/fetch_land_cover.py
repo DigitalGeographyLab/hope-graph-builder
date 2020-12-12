@@ -9,6 +9,7 @@ import geopandas as gpd
 from enum import Enum
 from requests import Request
 from functools import partial
+from db import get_db_writer
 
 
 hsy_wfs_url = 'https://kartta.hsy.fi/geoserver/wfs'
@@ -24,12 +25,6 @@ class VegetationLayers:
     trees_20m: GeoDataFrame = None
 
 
-@dataclass
-class CombinedVegetationLayers:
-    low_vegetation: GeoDataFrame
-    high_vegetation: GeoDataFrame
-
-
 class HsyWfsLayerName(Enum):
     low_vegetation = 'matala_kasvillisuus'
     low_vegetation_parks = 'maanpeite_muu_avoin_matala_kasvillisuus_2018'
@@ -37,7 +32,6 @@ class HsyWfsLayerName(Enum):
     trees_10_15m = 'maanpeite_puusto_10_15m_2018'
     trees_15_20m = 'maanpeite_puusto_15_20m_2018'
     trees_20m = 'maanpeite_puusto_yli20m_2018'
-    water = 'maanpeite_vesi_2018'
 
 
 def __fetch_wfs_layer(
@@ -61,13 +55,11 @@ def fetch_hsy_vegetation_layers(log, land_cover_cache_gpkg: str) -> VegetationLa
 
     fetch_wfs_layer = partial(__fetch_wfs_layer, hsy_wfs_url)
     fetched_layers = fiona.listlayers(land_cover_cache_gpkg)
+    log.info(f'Previously fetched layers: {fetched_layers}')
 
     layers: Dict[HsyWfsLayerName, GeoDataFrame] = {}
 
     for idx, layer_name in enumerate(HsyWfsLayerName):
-
-        if idx > 0:
-            break
 
         if layer_name.name in fetched_layers:
             log.info(f'Loading layer {idx+1}/{len(HsyWfsLayerName)}: {layer_name.name} from cache')
@@ -76,6 +68,7 @@ def fetch_hsy_vegetation_layers(log, land_cover_cache_gpkg: str) -> VegetationLa
         else:
             log.info(f'Fetching WFS layer {idx+1}/{len(HsyWfsLayerName)}: {layer_name.name} from "{layer_name.value}"')
             gdf = fetch_wfs_layer(layer_name.value)
+            gdf.drop(gdf.columns.difference(['geometry']), 1, inplace=True)
             gdf.to_file(land_cover_cache_gpkg, layer=layer_name.name, driver='GPKG')
             layers[layer_name.name] = gdf
 
@@ -83,38 +76,36 @@ def fetch_hsy_vegetation_layers(log, land_cover_cache_gpkg: str) -> VegetationLa
     return VegetationLayers(**layers)
 
 
-def dissolve_layer(log, gdf_in: GeoDataFrame) -> GeoDataFrame:
-    log.info('Dissolving layer')
-    gdf = gdf_in[['geometry']].copy()
-    gdf['group'] = 1
-    s_index = gdf.sindex
-    gdf = gdf.dissolve(by='group')
-    return gdf[['geometry']]
-
-
-def combine_vegetation_layers(
+def explode_geometries(
     log,
-    layer_cache: str,
     veg_layers: VegetationLayers
-) -> CombinedVegetationLayers:
-    log.info(f'Features before dissolve: {len(veg_layers.low_vegetation)}')
-    veg_layers.low_vegetation = dissolve_layer(log, veg_layers.low_vegetation)
-    log.info(f'Features after dissolve: {len(veg_layers.low_vegetation)}')
-
-
-def get_vegetation_layers(
-    log: Logger, 
-    layer_cache: str
-) -> CombinedVegetationLayers:
-
-    raise NotImplementedError
+) -> None:
+    log.info('Exploding geometries of low_vegetation')
+    veg_layers.low_vegetation = veg_layers.low_vegetation.explode()
+    log.info('Exploding geometries of low_vegetation_parks')
+    veg_layers.low_vegetation_parks = veg_layers.low_vegetation_parks.explode()
+    log.info('Exploding geometries of trees_2_10m')
+    veg_layers.trees_2_10m = veg_layers.trees_2_10m.explode()
+    log.info('Exploding geometries of trees_10_15m')
+    veg_layers.trees_10_15m = veg_layers.trees_10_15m.explode()
+    log.info('Exploding geometries of trees_15_20m')
+    veg_layers.trees_15_20m = veg_layers.trees_15_20m.explode()
+    log.info('Exploding geometries of trees_20m')
+    veg_layers.trees_20m = veg_layers.trees_20m.explode()
 
 
 if __name__ == '__main__':
     log = Logger(printing=True, log_file=r'fetch_land_cover.log', level='debug')
     land_cover_wfs_cache_gpkg = r'data/land_cover_wfs_cache.gpkg'
-    vegetation_layers_gpkg = r'data/vegetation_layers.gpkg'
 
     # load land cover from WFS
     vegetation_layers = fetch_hsy_vegetation_layers(log, land_cover_wfs_cache_gpkg)
-    combined_vege_layers = combine_vegetation_layers(log, vegetation_layers_gpkg, vegetation_layers)
+    explode_geometries(log, vegetation_layers)
+
+    write_to_postgis = get_db_writer(log)
+    write_to_postgis(vegetation_layers.low_vegetation, 'low_vegetation')
+    write_to_postgis(vegetation_layers.low_vegetation_parks, 'low_vegetation_parks')
+    write_to_postgis(vegetation_layers.trees_2_10m, 'trees_2_10m')
+    write_to_postgis(vegetation_layers.trees_10_15m, 'trees_10_15m')
+    write_to_postgis(vegetation_layers.trees_15_20m, 'trees_15_20m')
+    write_to_postgis(vegetation_layers.trees_20m, 'trees_20m')

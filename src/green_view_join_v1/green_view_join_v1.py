@@ -1,5 +1,6 @@
 import sys
 sys.path.append('..')
+from shapely.geometry import LineString
 from typing import Dict, List, Union
 from geopandas import GeoDataFrame
 import geopandas as gpd
@@ -7,7 +8,7 @@ import math
 from common.logger import Logger
 import common.igraph as ig_utils
 from common.igraph import Edge as E
-from fetch_land_cover import get_vegetation_layers
+from db import get_db_writer
 
 
 def load_point_gvi_gdf(filepath: str) -> GeoDataFrame:
@@ -29,21 +30,21 @@ def get_point_gvi_list_by_edge_id(
     geomtry will be included in the list. 
     """
 
+    edges = edge_gdf[[E.id_ig.name, 'geometry']].copy()
     gvi_points = point_gvi_gdf[['geometry', 'GVI']].copy()
 
-    edge_gdf['geom_b_30'] = [geom.buffer(30) for geom in edge_gdf['geometry']]
-    edge_gdf = edge_gdf.set_geometry('geom_b_30')
+    edges['geom_b_30'] = [geom.buffer(30) for geom in edges['geometry']]
+    edges = edges.set_geometry('geom_b_30')
 
-    edge_g_points = gpd.sjoin(edge_gdf, gvi_points, how='inner', op='intersects')
+    edge_g_points = gpd.sjoin(edges, gvi_points, how='inner', op='intersects')
     g_points_by_edge_id = edge_g_points.groupby(E.id_ig.name)
 
     gvi_list_by_edge_id = {}
     for edge_id, g_points in g_points_by_edge_id:
         gvi_list_by_edge_id[edge_id] = list(g_points['GVI'])
 
-    log.info(f'Found GVI point samples for {sample_ratio(len(edge_gdf), len(gvi_list_by_edge_id))} % edges')
+    log.info(f'Found GVI point samples for {sample_ratio(len(edges), len(gvi_list_by_edge_id))} % edges')
 
-    edge_gdf.drop(columns=['geom_b_30'], inplace=True)
     return gvi_list_by_edge_id
 
 
@@ -84,22 +85,34 @@ def add_mean_point_gvi(
 
 if __name__ == '__main__':
     log = Logger(printing=True, log_file=r'green_view_join_v1.log', level='debug')
-    land_cover_layers_gpkg = r'data/land_cover_cache.gpkg'
 
     # load GVI points from GPKG
     point_gvi_gdf_file = r'data/greenery_points.gpkg'
     point_gvi_gdf = load_point_gvi_gdf(point_gvi_gdf_file)
-
-    # load land cover from WFS
-    vegetation_layers = get_vegetation_layers(log, land_cover_layers_gpkg)
     
     # load street network graph froM GraphML
     graph = ig_utils.read_graphml(r'graph_in/kumpula.graphml')
-    log.info(f'read graph of {graph.ecount()} edges')
-    
-    edge_gdf = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length])
-    edge_gdf = edge_gdf.sort_values(E.id_ig.name)
+    log.info(f'Read graph of {graph.ecount()} edges')
+
+    # load edge_gdf
+    edge_gdf: GeoDataFrame = ig_utils.get_edge_gdf(graph, attrs=[E.id_ig, E.length, E.id_way])
+    edge_gdf = edge_gdf.drop_duplicates(E.id_way.name, keep = 'first')
+    # drop edges without geometry
+    edge_gdf = edge_gdf[edge_gdf['geometry'].apply(lambda geom: isinstance(geom, LineString))]
+    log.info(f'Subset edge_gdf to {len(edge_gdf)} unique geometries')
 
     # join mean point GVI to edge_gdf
     gvi_list_by_edge_id = get_point_gvi_list_by_edge_id(log, edge_gdf, point_gvi_gdf)
     edge_gdf = add_mean_point_gvi(log, gvi_list_by_edge_id, edge_gdf)
+    
+    # add simplified buffers to edge_gdf
+    log.info(f'Calculating 30m buffers from edge geometries')
+    edge_gdf['b30'] = [geom.buffer(30, resolution=3) for geom in edge_gdf['geometry']]
+    edge_gdf = edge_gdf.rename(columns={'geometry': 'line_geom', 'b30': 'geometry'})
+    edge_gdf = edge_gdf.set_geometry('geometry')
+
+    log.info('Writing edges to PostGIS')
+    write_to_postgis = get_db_writer(log)
+    write_to_postgis(edge_gdf[[E.id_ig.name, 'geometry']], 'edge_buffers')
+
+    # TODO overlay analysis with vegetation layers

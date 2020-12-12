@@ -156,4 +156,4 @@ src/graph_aqi_updater/debug/
 src/graph_aqi_updater/aqi_cache/
 src/green_view_join_v1/graph_in/
 src/green_view_join_v1/data/land_cover_wfs_cache.gpkg
-src/green_view_join_v1/data/vegetation_layers.gpkg
+src/green_view_join_v1/data/greenery_points.gpkg
