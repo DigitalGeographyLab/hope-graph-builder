@@ -86,12 +86,17 @@ def add_mean_point_gvi(
 if __name__ == '__main__':
     log = Logger(printing=True, log_file=r'green_view_join_v1.log', level='debug')
 
+    subset = True
+
+    graph_file_in = r'graph_in/kumpula.graphml' if subset else r'graph_in/hma.graphml'
+    edge_table_db_name = 'edge_buffers_subset' if subset else 'edge_buffers'
+
     # load GVI points from GPKG
     point_gvi_gdf_file = r'data/greenery_points.gpkg'
     point_gvi_gdf = load_point_gvi_gdf(point_gvi_gdf_file)
     
-    # load street network graph froM GraphML
-    graph = ig_utils.read_graphml(r'graph_in/kumpula.graphml')
+    # load street network graph from GraphML
+    graph = ig_utils.read_graphml(graph_file_in)
     log.info(f'Read graph of {graph.ecount()} edges')
 
     # load edge_gdf
@@ -113,6 +118,6 @@ if __name__ == '__main__':
 
     log.info('Writing edges to PostGIS')
     write_to_postgis = get_db_writer(log)
-    write_to_postgis(edge_gdf[[E.id_ig.name, 'geometry']], 'edge_buffers')
+    write_to_postgis(edge_gdf[[E.id_ig.name, 'geometry']], edge_table_db_name)
 
     # TODO overlay analysis with vegetation layers
