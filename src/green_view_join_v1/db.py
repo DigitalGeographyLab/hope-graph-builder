@@ -1,15 +1,15 @@
-from typing import Callable, Union
+from typing import Callable, List, Union
 import env
 from geopandas import GeoDataFrame
 from sqlalchemy import create_engine, inspect, text
 from functools import partial
 
 
-def get_conn_string(db: str) -> str:
+def __get_conn_string(db: str) -> str:
     return f'postgres://{env.db_user}:{env.db_pass}@{env.db_host}:{env.db_port}/{db}'
 
 
-def write_to_postgis(
+def __write_to_postgis(
     log,
     sql_engine, 
     gdf: GeoDataFrame,
@@ -25,18 +25,15 @@ def write_to_postgis(
         table_name, 
         sql_engine, 
         if_exists = if_exists, 
+        chunksize=50000,
         index = index
     )
 
-    # set geometry column name to geom
-    with sql_engine.connect() as conn:
-        result = conn.execute(
-            f'''
-            ALTER TABLE {table_name} RENAME COLUMN geometry TO geom;
-            ALTER INDEX idx_{table_name}_geometry
-                RENAME TO idx_{table_name}_geom;
-            '''
-        )
+    __execute_sql(log, sql_engine, f'''
+        ALTER TABLE {table_name} RENAME COLUMN geometry TO geom;
+        ALTER INDEX idx_{table_name}_geometry
+            RENAME TO idx_{table_name}_geom;
+    ''')
 
 
 def get_db_writer(
@@ -46,39 +43,47 @@ def get_db_writer(
     db: str = 'gp'
 ) -> Callable[[GeoDataFrame, str, str, bool], None]:
 
-    engine = create_engine(get_conn_string(db))  
+    engine = create_engine(__get_conn_string(db))  
     
     if b_inspect and inspect_table:
         inspector = inspect(engine)
         print(inspector.get_columns(inspect_table))
     
-    return partial(write_to_postgis, log, engine)
+    return partial(__write_to_postgis, log, engine)
 
 
 def __execute_sql(
     log, 
     engine, 
-    query: str, 
+    query_str: str, 
     logging: bool = False, 
     returns: bool = False,
     dry_run: bool = False
 ) -> Union[None, list]:
 
-    log.info(f'{"Executing SQL:" if not dry_run else "Skipping SQL:"} {query}')
-    sql_query = text(query.strip())
+    queries = query_str.split(';') if ';' in query_str else [query_str]
+    queries = [query.strip() for query in queries if len(query.strip()) > 0]
 
-    if dry_run: return
-
+    all_rows = []
     with engine.connect() as conn:
-        result = conn.execute(sql_query)
-        log.info('SQL execution finished')
-        if logging or returns:
-            rows = result.fetchall()
-            if logging:
-                for row in rows:
-                    log.info(f'{row}')
-            if returns:
-                return rows
+        for query in queries:
+            log.info(f'{"Executing SQL:" if not dry_run else "Skipping SQL:"}\n{query}')
+            if dry_run:
+                continue
+            result = conn.execute(query)
+            if result.cursor and (logging or returns):
+                rows = result.fetchall()
+                if logging:
+                    log.info('Result rows:')
+                    for row in rows:
+                        log.info(f'{row}')
+                if returns:
+                    all_rows += rows
+            if not dry_run:
+                log.info('SQL execution finished')
+    
+    if returns:
+        return all_rows
 
 
 def get_sql_executor(
@@ -89,5 +94,22 @@ def get_sql_executor(
     Union[list, None]
     ]:
 
-    engine = create_engine(get_conn_string(db))
+    engine = create_engine(__get_conn_string(db))
     return partial(__execute_sql, log, engine)
+
+
+def get_db_table_names(
+    execute_sql: Callable[[str], list]
+) -> List[str]:
+    
+    db_tables = execute_sql(
+        f'''
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        ORDER BY table_name;
+        ''', 
+        returns=True, 
+        dry_run=False
+    )
+    return [r for r, in db_tables]

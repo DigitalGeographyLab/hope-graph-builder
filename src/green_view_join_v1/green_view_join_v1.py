@@ -8,7 +8,7 @@ import math
 from common.logger import Logger
 import common.igraph as ig_utils
 from common.igraph import Edge as E
-from db import get_db_writer
+import db
 
 
 def load_point_gvi_gdf(filepath: str) -> GeoDataFrame:
@@ -91,9 +91,11 @@ if __name__ == '__main__':
     graph_file_in = r'graph_in/kumpula.graphml' if subset else r'graph_in/hma.graphml'
     edge_table_db_name = 'edge_buffers_subset' if subset else 'edge_buffers'
 
+    execute_sql = db.get_sql_executor(log)
+    db_tables = db.get_db_table_names(execute_sql)
+
     # load GVI points from GPKG
-    point_gvi_gdf_file = r'data/greenery_points.gpkg'
-    point_gvi_gdf = load_point_gvi_gdf(point_gvi_gdf_file)
+    point_gvi_gdf = load_point_gvi_gdf(r'data/greenery_points.gpkg')
     
     # load street network graph from GraphML
     graph = ig_utils.read_graphml(graph_file_in)
@@ -106,18 +108,28 @@ if __name__ == '__main__':
     edge_gdf = edge_gdf[edge_gdf['geometry'].apply(lambda geom: isinstance(geom, LineString))]
     log.info(f'Subset edge_gdf to {len(edge_gdf)} unique geometries')
 
+    # export edges to db if not there yet for land cover overlay analysis
+    if edge_table_db_name not in db_tables:
+        # add simplified buffers to edge_gdf
+        edges_2_db = edge_gdf.copy()
+        log.info(f'Calculating 30m buffers from edge geometries')
+        edges_2_db['b30'] = [geom.buffer(30, resolution=3) for geom in edges_2_db['geometry']]
+        edges_2_db = edges_2_db.rename(columns={'geometry': 'line_geom', 'b30': 'geometry'})
+        edges_2_db = edges_2_db.set_geometry('geometry')
+
+        log.info('Writing edges to PostGIS')
+        write_to_postgis = db.get_db_writer(log)
+        write_to_postgis(edges_2_db[[E.id_ig.name, 'geometry']], edge_table_db_name)
+
+        log.info('Wrote graph edges to db, run land_cover_overlay_analysis.py next')
+        exit()
+    
+    else:
+        log.info(f'Edges were already exported to db table: {edge_table_db_name}')
+    
     # join mean point GVI to edge_gdf
     gvi_list_by_edge_id = get_point_gvi_list_by_edge_id(log, edge_gdf, point_gvi_gdf)
     edge_gdf = add_mean_point_gvi(log, gvi_list_by_edge_id, edge_gdf)
     
-    # add simplified buffers to edge_gdf
-    log.info(f'Calculating 30m buffers from edge geometries')
-    edge_gdf['b30'] = [geom.buffer(30, resolution=3) for geom in edge_gdf['geometry']]
-    edge_gdf = edge_gdf.rename(columns={'geometry': 'line_geom', 'b30': 'geometry'})
-    edge_gdf = edge_gdf.set_geometry('geometry')
+    # TODO join land cover GVI to edge_gdf
 
-    log.info('Writing edges to PostGIS')
-    write_to_postgis = get_db_writer(log)
-    write_to_postgis(edge_gdf[[E.id_ig.name, 'geometry']], edge_table_db_name)
-
-    # TODO overlay analysis with vegetation layers
