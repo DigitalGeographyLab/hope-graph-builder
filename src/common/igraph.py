@@ -13,7 +13,7 @@ is read to pandas DataFrame object.
 
 import ast
 from enum import Enum
-from typing import List, Set, Dict, Tuple
+from typing import List, Dict
 import geopandas as gpd
 import igraph as ig
 from pyproj import CRS
@@ -201,7 +201,7 @@ def get_node_gdf(
 
 
 def read_graphml(graph_file: str, log = None) -> ig.Graph:
-    """Loads an igraph graph object from GraphML file, including all found edge and node
+    """Loads an igraph graph object from GraphML file, including all edge and node
     attributes that are found in the data and recognized by this module. 
     
     Since all attributes are saved in text format, an attribute specific converter must be found 

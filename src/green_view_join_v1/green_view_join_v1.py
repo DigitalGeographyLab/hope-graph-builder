@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
         log.info('Writing edges to PostGIS')
         write_to_postgis = db.get_db_writer(log)
-        write_to_postgis(edges_2_db[[E.id_ig.name, 'geometry']], edge_table_db_name)
+        write_to_postgis(edges_2_db[[E.id_way.name, 'geometry']], edge_table_db_name)
 
         log.info('Wrote graph edges to db, run land_cover_overlay_analysis.py next')
         exit()

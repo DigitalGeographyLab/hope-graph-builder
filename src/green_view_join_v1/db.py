@@ -1,5 +1,6 @@
 from typing import Callable, List, Union
 import env
+import pandas as pd
 from geopandas import GeoDataFrame
 from sqlalchemy import create_engine, inspect, text
 from functools import partial
@@ -29,11 +30,11 @@ def __write_to_postgis(
         index = index
     )
 
-    __execute_sql(log, sql_engine, f'''
+    __execute_sql(log, sql_engine, text(f'''
         ALTER TABLE {table_name} RENAME COLUMN geometry TO geom;
         ALTER INDEX idx_{table_name}_geometry
             RENAME TO idx_{table_name}_geom;
-    ''')
+    '''))
 
 
 def get_db_writer(
@@ -43,7 +44,7 @@ def get_db_writer(
     db: str = 'gp'
 ) -> Callable[[GeoDataFrame, str, str, bool], None]:
 
-    engine = create_engine(__get_conn_string(db))  
+    engine = create_engine(__get_conn_string(db))
     
     if b_inspect and inspect_table:
         inspector = inspect(engine)
@@ -70,7 +71,7 @@ def __execute_sql(
             log.info(f'{"Executing SQL:" if not dry_run else "Skipping SQL:"}\n{query}')
             if dry_run:
                 continue
-            result = conn.execute(query)
+            result = conn.execute(text(query))
             if result.cursor and (logging or returns):
                 rows = result.fetchall()
                 if logging:
@@ -109,7 +110,12 @@ def get_db_table_names(
         WHERE table_schema = 'public'
         ORDER BY table_name;
         ''', 
-        returns=True, 
-        dry_run=False
+        returns=True
     )
     return [r for r, in db_tables]
+
+
+def read_db_table_to_df(table: str, db = 'gp') -> pd.DataFrame:
+    engine = create_engine(__get_conn_string(db))
+    with engine.connect() as conn:
+        return pd.read_sql(f'SELECT * FROM {table}', conn)
