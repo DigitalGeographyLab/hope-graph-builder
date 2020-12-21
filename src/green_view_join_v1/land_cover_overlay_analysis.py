@@ -1,5 +1,5 @@
 import sys
-from typing import Callable
+from typing import Dict
 sys.path.append('..')
 from enum import Enum
 from common.logger import Logger
@@ -33,6 +33,20 @@ class Column(Enum):
     edge_id = 'id_way'
     low_veg_share = 'low_veg_share'
     high_veg_share = 'high_veg_share'
+
+
+def get_low_veg_share_by_way_id() -> Dict[int, float]:
+    df = db.read_db_table_to_df(final_low_veg_share_table)
+    way_ids = list(df['id_way'])
+    low_veg_shares = list(df[Column.low_veg_share.value])
+    return dict(zip(way_ids, low_veg_shares))
+
+
+def get_high_veg_share_by_way_id() -> Dict[int, float]:
+    df = db.read_db_table_to_df(final_high_veg_share_table)
+    way_ids = list(df['id_way'])
+    high_veg_shares = list(df[Column.high_veg_share.value])
+    return dict(zip(way_ids, high_veg_shares))
 
 
 if __name__ == '__main__':
@@ -217,6 +231,7 @@ if __name__ == '__main__':
         ''', 
         dry_run=True
     )
+
 
     df = db.read_db_table_to_df(final_low_veg_share_table)
     df.to_csv(f'temp/{final_low_veg_share_table}.csv', index=False)

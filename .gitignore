@@ -158,3 +158,4 @@ src/green_view_join_v1/graph_in/
 src/green_view_join_v1/data/land_cover_wfs_cache.gpkg
 src/green_view_join_v1/data/greenery_points.gpkg
 src/green_view_join_v1/temp
+src/green_view_join_v1/graph_out/

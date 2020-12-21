@@ -3,12 +3,14 @@ sys.path.append('..')
 from shapely.geometry import LineString
 from typing import Dict, List, Union
 from geopandas import GeoDataFrame
+from pandas import DataFrame
 import geopandas as gpd
 import math
 from common.logger import Logger
 import common.igraph as ig_utils
 from common.igraph import Edge as E
 import db
+import land_cover_overlay_analysis as lc_analysis
 
 
 def load_point_gvi_gdf(filepath: str) -> GeoDataFrame:
@@ -21,7 +23,7 @@ def load_point_gvi_gdf(filepath: str) -> GeoDataFrame:
 sample_ratio = lambda e_count, s_count: round(100 * s_count/e_count, 1)
 
 
-def get_point_gvi_list_by_edge_id(
+def get_point_gvi_list_by_way_id(
     log: Logger,
     edge_gdf: GeoDataFrame,
     point_gvi_gdf: GeoDataFrame
@@ -30,57 +32,73 @@ def get_point_gvi_list_by_edge_id(
     geomtry will be included in the list. 
     """
 
-    edges = edge_gdf[[E.id_ig.name, 'geometry']].copy()
+    edges = edge_gdf[[E.id_way.name, 'geometry']].copy()
     gvi_points = point_gvi_gdf[['geometry', 'GVI']].copy()
 
     edges['geom_b_30'] = [geom.buffer(30) for geom in edges['geometry']]
     edges = edges.set_geometry('geom_b_30')
 
-    edge_g_points = gpd.sjoin(edges, gvi_points, how='inner', op='intersects')
-    g_points_by_edge_id = edge_g_points.groupby(E.id_ig.name)
+    edge_gvi_points = gpd.sjoin(edges, gvi_points, how='inner', op='intersects')
+    gvi_points_by_way_id = edge_gvi_points.groupby(E.id_way.name)
 
-    gvi_list_by_edge_id = {}
-    for edge_id, g_points in g_points_by_edge_id:
-        gvi_list_by_edge_id[edge_id] = list(g_points['GVI'])
+    gvi_list_by_way_id = {}
+    for way_id, g_points in gvi_points_by_way_id:
+        gvi_list_by_way_id[way_id] = list(g_points['GVI'])
 
-    log.info(f'Found GVI point samples for {sample_ratio(len(edges), len(gvi_list_by_edge_id))} % edges')
+    log.info(f'Found GVI point samples for {sample_ratio(len(edges), len(gvi_list_by_way_id))} % edges')
 
-    return gvi_list_by_edge_id
+    return gvi_list_by_way_id
 
 
 def get_mean_edge_point_gvi(
-    gvi_list: List[float], 
-    e_length: float
+    edge_length: float,
+    gvi_list: List[float],
 ) -> Union[float, None]:
     """Returns mean GVI if there are enough samples in the list with respect to the length of the edge,
     else returns None (i.e. unknown edge GVI). We expect one GVI point per 10 m on streets, and accept 
     no more than half of the points missing (TODO: adjust this logic if needed). 
     """
-    required_sample_size = math.floor((e_length / 10) * 0.5) if e_length > 20 else 1
+    required_sample_size = math.floor((edge_length / 10) * 0.5) if edge_length > 20 else 1
     mean = lambda l: round(sum(l) / len(l), 2)
     return mean(gvi_list) if len(gvi_list) >= required_sample_size else None
 
 
-def add_mean_point_gvi(
+def get_col_by_col_dict(df: DataFrame, col1: str, col2: str) -> dict:
+    col1_values = list(df[col1])
+    col2_values = list(df[col2])
+    return dict(zip(col1_values, col2_values))
+
+
+def get_mean_point_gvi_by_way_id(
     log: Logger,
-    gvi_list_by_edge_id: Dict[int, List[float]], 
+    gvi_list_by_way_id: Dict[int, List[float]], 
     edge_gdf: GeoDataFrame
-) -> GeoDataFrame:
-    """Adds new column to edge_gdf with name "mean_p_GVI" containing
-    mean GVI values from point GVI data.
-    """
+) -> Dict[int, float]:
+    edge_length_by_way_id = get_col_by_col_dict(edge_gdf, E.id_way.name, E.length.name)
 
-    edge_gdf['mean_p_GVI'] = edge_gdf.apply(
-        lambda row: get_mean_edge_point_gvi(
-            gvi_list_by_edge_id.get(row[E.id_ig.name], []),
-            row[E.length.name]
-        ), axis=1
-    )
+    mean_point_gvi_by_way_id = { way_id:
+        get_mean_edge_point_gvi(edge_length_by_way_id[way_id], gvi_list_by_way_id[way_id])
+        for way_id in gvi_list_by_way_id
+    }
+    na_filtered = { way_id: gvi for way_id, gvi in mean_point_gvi_by_way_id.items() if gvi is not None }
+    log.info(f'Got mean point GVI for {sample_ratio(len(edge_gdf), len(na_filtered))} % edges')
+    return na_filtered
 
-    count_joined_gvi = edge_gdf['mean_p_GVI'].count()
-    log.info(f'Joined GVI mean values to {sample_ratio(len(edge_gdf), count_joined_gvi)} % edges')
 
-    return edge_gdf
+def combine_gvi_indexes(
+    gsv_gvi: Union[float, None],
+    low_veg_share: float,
+    high_veg_share: float,
+    omit_low_veg: bool = False,
+    low_veg_gvi_coeff: float = 0.6
+):
+    if gsv_gvi:
+        return round(gsv_gvi, 2)
+    elif omit_low_veg:
+        return round(high_veg_share, 2)
+    else:
+        comb_lc_gvi = high_veg_share + low_veg_gvi_coeff * low_veg_share
+        return round(comb_lc_gvi, 2)
 
 
 if __name__ == '__main__':
@@ -89,6 +107,7 @@ if __name__ == '__main__':
     subset = True
 
     graph_file_in = r'graph_in/kumpula.graphml' if subset else r'graph_in/hma.graphml'
+    graph_file_out = r'graph_out/kumpula.graphml' if subset else r'graph_out/hma.graphml'
     edge_table_db_name = 'edge_buffers_subset' if subset else 'edge_buffers'
 
     execute_sql = db.get_sql_executor(log)
@@ -127,9 +146,44 @@ if __name__ == '__main__':
     else:
         log.info(f'Edges were already exported to db table: {edge_table_db_name}')
     
-    # join mean point GVI to edge_gdf
-    gvi_list_by_edge_id = get_point_gvi_list_by_edge_id(log, edge_gdf, point_gvi_gdf)
-    edge_gdf = add_mean_point_gvi(log, gvi_list_by_edge_id, edge_gdf)
-    
-    # TODO join land cover GVI to edge_gdf
+    # get mean point GVI per edge
+    point_gvi_list_by_way_id = get_point_gvi_list_by_way_id(log, edge_gdf, point_gvi_gdf)
+    mean_point_gvi_by_way_id = get_mean_point_gvi_by_way_id(log, point_gvi_list_by_way_id, edge_gdf)
 
+    # fetch low and high vegetation shares from db per edge buffer (way ID)
+    low_veg_share_by_way_id = lc_analysis.get_low_veg_share_by_way_id()
+    high_veg_share_by_way_id = lc_analysis.get_high_veg_share_by_way_id()
+
+    # set default GVI attributes to graph
+    graph.es[E.gvi_gsv.value] = None
+    graph.es[E.gvi_low_veg_share.value] = None
+    graph.es[E.gvi_high_veg_share.value] = None
+    graph.es[E.gvi_comb_gsv_veg.value] = None
+    graph.es[E.gvi_comb_gsv_high_veg.value] = None
+
+    # set calculated GVI attribute values to graph
+    for e in graph.es:
+        attrs = e.attributes()
+        way_id = attrs[E.id_way.value]
+
+        # let's only update GVI values for edges with geometry
+        if isinstance(attrs[E.geometry.value], LineString):
+            gsv_gvi = mean_point_gvi_by_way_id.get(way_id, None)
+            low_veg_share = low_veg_share_by_way_id.get(way_id, 0.0)
+            high_veg_share = high_veg_share_by_way_id.get(way_id, 0.0)
+
+            graph.es[e.index].update_attributes({
+                # if GSV GVI is not found, there were no pictures on the edge
+                E.gvi_gsv.value: gsv_gvi,
+                # if land cover GVI (vegetation share) is not found, there is no vegetation
+                E.gvi_low_veg_share.value: low_veg_share,
+                E.gvi_high_veg_share.value: high_veg_share,
+                E.gvi_comb_gsv_veg.value: combine_gvi_indexes(gsv_gvi, low_veg_share, high_veg_share),
+                E.gvi_comb_gsv_high_veg.value: combine_gvi_indexes(
+                    gsv_gvi, low_veg_share, high_veg_share, omit_low_veg=True
+                )
+            })
+
+    ig_utils.export_to_graphml(graph, graph_file_out)
+
+    log.info(f'Exported graph to file {graph_file_out}')

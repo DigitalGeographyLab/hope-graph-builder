@@ -63,14 +63,20 @@ class Edge(Enum):
    noise_source: NoiseSource = 'ns' # nodata = None, no noises = ''
    noise_sources: Dict[NoiseSource, int] = 'nss' # nodata = None, no noises = {}
    aqi: float = 'aqi' # air quality index
+   gvi_gsv: float = 'g_gsv' # mean green view index (GVI) calculated from Google Street View (GSV) images
+   gvi_low_veg_share: float = 'g_lv' # share of low (<2m) vegetation in 30m buffer around edge
+   gvi_high_veg_share: float = 'g_hv' # share of high (>2m) vegetation in 30m buffer around edge
+   gvi_comb_gsv_veg: float = 'g_gsv_v' # combined GVI of GSV GVI and both vegetation shares
+   gvi_comb_gsv_high_veg: float = 'g_gsv_hv' # combined GVI of GSV GVI and high vegetation share
+   gvi: float = 'g' # combined GVI to use in routing (one of the above two)
 
 
 def to_str(value):
     return str(value) if value != 'None' else None
 def to_int(value):
-    return int(value)
+    return int(value) if value != 'None' else None
 def to_float(value):
-    return float(value)
+    return float(value) if value != 'None' else None
 def to_geom(value):
     return wkt.loads(value)
 def to_bool(value):
@@ -103,7 +109,13 @@ __value_converter_by_edge_attribute = {
     Edge.noises: to_dict,
     Edge.noise_source: to_str,
     Edge.noise_sources: to_dict,
-    Edge.aqi: to_float
+    Edge.aqi: to_float,
+    Edge.gvi_gsv: to_float,
+    Edge.gvi_low_veg_share: to_float,
+    Edge.gvi_high_veg_share: to_float,
+    Edge.gvi_comb_gsv_veg: to_float,
+    Edge.gvi_comb_gsv_high_veg: to_float,
+    Edge.gvi: to_float
 }
 
 __value_converter_by_node_attribute = {
