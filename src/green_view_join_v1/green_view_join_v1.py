@@ -1,5 +1,6 @@
 import sys
 sys.path.append('..')
+from igraph import Graph
 from shapely.geometry import LineString
 from typing import Dict, List, Union
 from geopandas import GeoDataFrame
@@ -108,6 +109,46 @@ def combine_gvi_indexes(
         return round(comb_lc_gvi, 2)
 
 
+def update_gvi_attributes_to_graph(
+    graph: Graph,
+    mean_point_gvi_by_way_id: Dict[int, float],
+    low_veg_share_by_way_id: Dict[int, float],
+    high_veg_share_by_way_id: Dict[int, float]
+) -> Graph:
+
+    # set default GVI attributes to graph
+    graph.es[E.gvi_gsv.value] = None
+    graph.es[E.gvi_low_veg_share.value] = None
+    graph.es[E.gvi_high_veg_share.value] = None
+    graph.es[E.gvi_comb_gsv_veg.value] = None
+    graph.es[E.gvi_comb_gsv_high_veg.value] = None
+
+    # set calculated GVI attribute values to graph
+    for e in graph.es:
+        attrs = e.attributes()
+        way_id = attrs[E.id_way.value]
+
+        # let's only update GVI values for edges with geometry
+        if isinstance(attrs[E.geometry.value], LineString):
+            gsv_gvi = mean_point_gvi_by_way_id.get(way_id, None)
+            low_veg_share = low_veg_share_by_way_id.get(way_id, 0.0)
+            high_veg_share = high_veg_share_by_way_id.get(way_id, 0.0)
+
+            graph.es[e.index].update_attributes({
+                # if GSV GVI is not found, there were no pictures on the edge
+                E.gvi_gsv.value: gsv_gvi,
+                # if land cover GVI (vegetation share) is not found, there is no vegetation
+                E.gvi_low_veg_share.value: low_veg_share,
+                E.gvi_high_veg_share.value: high_veg_share,
+                E.gvi_comb_gsv_veg.value: combine_gvi_indexes(gsv_gvi, low_veg_share, high_veg_share),
+                E.gvi_comb_gsv_high_veg.value: combine_gvi_indexes(
+                    gsv_gvi, low_veg_share, high_veg_share, omit_low_veg=True
+                )
+            })
+    
+    return graph
+
+
 if __name__ == '__main__':
     log = Logger(printing=True, log_file=r'green_view_join_v1.log', level='debug')
 
@@ -161,35 +202,12 @@ if __name__ == '__main__':
     low_veg_share_by_way_id = lc_analysis.get_low_veg_share_by_way_id()
     high_veg_share_by_way_id = lc_analysis.get_high_veg_share_by_way_id()
 
-    # set default GVI attributes to graph
-    graph.es[E.gvi_gsv.value] = None
-    graph.es[E.gvi_low_veg_share.value] = None
-    graph.es[E.gvi_high_veg_share.value] = None
-    graph.es[E.gvi_comb_gsv_veg.value] = None
-    graph.es[E.gvi_comb_gsv_high_veg.value] = None
-
-    # set calculated GVI attribute values to graph
-    for e in graph.es:
-        attrs = e.attributes()
-        way_id = attrs[E.id_way.value]
-
-        # let's only update GVI values for edges with geometry
-        if isinstance(attrs[E.geometry.value], LineString):
-            gsv_gvi = mean_point_gvi_by_way_id.get(way_id, None)
-            low_veg_share = low_veg_share_by_way_id.get(way_id, 0.0)
-            high_veg_share = high_veg_share_by_way_id.get(way_id, 0.0)
-
-            graph.es[e.index].update_attributes({
-                # if GSV GVI is not found, there were no pictures on the edge
-                E.gvi_gsv.value: gsv_gvi,
-                # if land cover GVI (vegetation share) is not found, there is no vegetation
-                E.gvi_low_veg_share.value: low_veg_share,
-                E.gvi_high_veg_share.value: high_veg_share,
-                E.gvi_comb_gsv_veg.value: combine_gvi_indexes(gsv_gvi, low_veg_share, high_veg_share),
-                E.gvi_comb_gsv_high_veg.value: combine_gvi_indexes(
-                    gsv_gvi, low_veg_share, high_veg_share, omit_low_veg=True
-                )
-            })
+    graph = update_gvi_attributes_to_graph(
+        graph,
+        mean_point_gvi_by_way_id,
+        low_veg_share_by_way_id,
+        high_veg_share_by_way_id
+    )
 
     ig_utils.export_to_graphml(graph, graph_file_out)
 
