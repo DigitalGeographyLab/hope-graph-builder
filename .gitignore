@@ -149,8 +149,8 @@ src/noise_graph_join/debug
 src/noise_graph_join/out_csv/
 src/noise_graph_join/out_graph/
 src/test/data/noise_data_processed.gpkg
-src/graph_export/data/
-src/graph_export/out_graph/
+src/graph_export/graph_in/
+src/graph_export/graph_out/
 src/graph_aqi_updater/graph/
 src/graph_aqi_updater/debug/
 src/graph_aqi_updater/aqi_cache/

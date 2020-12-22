@@ -154,8 +154,8 @@ def get_edge_gdf(
     geom_attr: Enum = Edge.geometry, 
     epsg: int = 3879
 ) -> gpd.GeoDataFrame:
-    """Returns all edges of a graph as pandas GeoDataFrame. The default is to load the projected geometry,
-    but it can be overridden by defining another geom_attr and a corresponding epsg. 
+    """Returns all edges of a graph as GeoPandas GeoDataFrame. The default is to load the projected geometry,
+    but it can be overridden by defining another geom_attr and the corresponding epsg. 
     """
 
     edge_dicts = []

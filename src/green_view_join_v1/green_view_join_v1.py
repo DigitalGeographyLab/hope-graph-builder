@@ -74,6 +74,9 @@ def get_mean_point_gvi_by_way_id(
     gvi_list_by_way_id: Dict[int, List[float]], 
     edge_gdf: GeoDataFrame
 ) -> Dict[int, float]:
+    """Calculate mean point GVI for edges. Only edges (way IDs) for which enough GVI point samples
+    are found are included in the returned dictionary. 
+    """
     edge_length_by_way_id = get_col_by_col_dict(edge_gdf, E.id_way.name, E.length.name)
 
     mean_point_gvi_by_way_id = { way_id:
@@ -91,7 +94,11 @@ def combine_gvi_indexes(
     high_veg_share: float,
     omit_low_veg: bool = False,
     low_veg_gvi_coeff: float = 0.6
-):
+) -> float:
+    """Returns mean GSV (i.e. point) GVI if present, otherwise returns either high vegetation share
+    or combined high and low vegetation shares as "GVI". In the combined GVI, the effect of low
+    vegetation share is reduced by the given coefficient low_veg_gvi_coeff (float). 
+    """
     if gsv_gvi:
         return round(gsv_gvi, 2)
     elif omit_low_veg:
