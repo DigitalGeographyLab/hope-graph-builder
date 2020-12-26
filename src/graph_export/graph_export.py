@@ -2,22 +2,28 @@ import sys
 sys.path.append('..')
 import common.igraph as ig_utils
 from common.igraph import Edge as E, Node as N
+import geopandas as gpd
 import utils
 
 
-graph_name = 'kumpula'
+subset = False
+graph_name = 'kumpula' if subset else 'hma'
 
-graph = ig_utils.read_graphml(f'graph_in/{graph_name}.graphml')
-out_graph = f'graph_out/{graph_name}.graphml'
-out_graph_research = f'graph_out/{graph_name}_r.graphml'
-out_geojson_noise = f'graph_out/{graph_name}_noise.geojson'
-out_geojson = f'graph_out/{graph_name}.geojson'
+graph = ig_utils.read_graphml(fr'graph_in/{graph_name}.graphml')
+hel_extent = gpd.read_file(r'hel.geojson')
+
+out_graph = fr'graph_out/{graph_name}.graphml'
+out_graph_research = fr'graph_out/{graph_name}_r.graphml'
+out_graph_research_hel = fr'graph_out/{graph_name}_r_hel-clip.graphml'
+out_geojson_noise = fr'graph_out/{graph_name}_noise.geojson'
+out_geojson = fr'graph_out/{graph_name}.geojson'
 
 out_node_attrs = [N.geometry]
 out_edge_attrs = [
     E.id_ig, E.uv, E.id_way, E.geometry, E.geom_wgs, 
     E.length, E.length_b, E.noises, E.gvi
 ]
+
 
 def set_biking_lengths(graph, edge_gdf):
     for edge in edge_gdf.itertuples():
@@ -36,6 +42,7 @@ def set_way_ids(graph, edge_gdf):
     edge_gdf['way_id'] = [way_ids_d[way_id] for way_id in edge_gdf['way_id']]
     graph.es[E.id_way.value] = list(edge_gdf['way_id'])
 
+
 edge_gdf = ig_utils.get_edge_gdf(
     graph, 
     attrs=[E.id_ig, E.length, E.bike_safety_factor], 
@@ -46,17 +53,44 @@ set_biking_lengths(graph, edge_gdf)
 set_uv(graph, edge_gdf)
 set_way_ids(graph, edge_gdf)
 
-# create geojson for vector tiles
+# set combined GVI to GVI attribute & export graph
+graph.es[E.gvi.value] = list(graph.es[E.gvi_comb_gsv_veg.value])
+ig_utils.export_to_graphml(graph, out_graph, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
+
+
+# create GeoJSON files for vector tiles
 geojson = utils.create_geojson(graph)
 utils.write_geojson(geojson, out_geojson, overwrite=True, id_attr=True)
 utils.write_geojson(geojson, out_geojson_noise, overwrite=True, db_prop=True)
 
-# set combined GVI to GVI attribute
-graph.es[E.gvi.value] = list(graph.es[E.gvi_comb_gsv_veg.value])
-ig_utils.export_to_graphml(graph, out_graph, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
 
 # for research use, set combined GVI that omits low vegetation to GVI attribute and export graph
 graph.es[E.gvi.value] = list(graph.es[E.gvi_comb_gsv_high_veg.value])
 ig_utils.export_to_graphml(graph, out_graph_research, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
 
-# TODO export subset of the graph by the extent of Helsinki
+
+# export clip of the graph by the extent of Helsinki
+
+node_gdf = ig_utils.get_node_gdf(graph, attrs=[N.id_ig])
+# replace geometry with buffered one (500 m)
+hel_extent['geometry'] = [geom.buffer(500) for geom in hel_extent['geometry']]
+inside_hel = gpd.sjoin(node_gdf, hel_extent)
+inside_hel_ids = list(inside_hel[N.id_ig.name])
+outside_hel_ids = [id_ig for id_ig in list(node_gdf[N.id_ig.name]) if id_ig not in inside_hel_ids]
+
+graph.delete_vertices(outside_hel_ids)
+# delete isolated nodes
+del_node_ids = [v.index for v in graph.vs.select(_degree_eq=0)]
+graph.delete_vertices(del_node_ids)
+# reassign igraph indexes to edge and node attributes
+graph.es[E.id_ig.value] = [e.index for e in graph.es]
+graph.vs[N.id_ig.value] = [v.index for v in graph.vs]
+# recalculate uv_id edge attributes
+edge_gdf = ig_utils.get_edge_gdf(
+    graph, 
+    ig_attrs=['source', 'target']
+)
+set_uv(graph, edge_gdf)
+
+# export clipped graph
+ig_utils.export_to_graphml(graph, out_graph_research_hel, n_attrs=out_node_attrs, e_attrs=out_edge_attrs)
