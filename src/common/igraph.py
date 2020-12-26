@@ -249,8 +249,8 @@ def export_to_graphml(
     e_attrs: List[Edge] = []
 ) -> None:
     """Writes the given graph object to a text file in GraphML format. Only the
-    selected edge and node attributes are included in the export if some are given. 
-    If no edge or node attributes are given, all found attributes are exported. 
+    selected edge and node attributes are included in the export if some are specified. 
+    If no edge or node attributes are specified, all found attributes are exported. 
     Attribute values are written as text, converted by str(value). 
     """
 

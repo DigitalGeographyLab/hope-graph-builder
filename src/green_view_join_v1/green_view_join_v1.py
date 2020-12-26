@@ -106,7 +106,11 @@ def combine_gvi_indexes(
         return round(high_veg_share, 2)
     else:
         comb_lc_gvi = high_veg_share + low_veg_gvi_coeff * low_veg_share
-        return round(comb_lc_gvi, 2)
+        if comb_lc_gvi <= 1.0:
+            return round(comb_lc_gvi, 2)
+        else:
+            # make sure combined veg share never exceeds 1.0
+            return 1.0
 
 
 def update_gvi_attributes_to_graph(
@@ -152,7 +156,8 @@ def update_gvi_attributes_to_graph(
 if __name__ == '__main__':
     log = Logger(printing=True, log_file=r'green_view_join_v1.log', level='debug')
 
-    subset = True
+    subset = False
+    log.info(f'Starting GVI join with graph subset: {subset}')
 
     graph_file_in = r'graph_in/kumpula.graphml' if subset else r'graph_in/hma.graphml'
     graph_file_out = r'graph_out/kumpula.graphml' if subset else r'graph_out/hma.graphml'

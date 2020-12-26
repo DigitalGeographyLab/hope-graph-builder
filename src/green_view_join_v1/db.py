@@ -30,11 +30,11 @@ def __write_to_postgis(
         index = index
     )
 
-    __execute_sql(log, sql_engine, text(f'''
+    __execute_sql(log, sql_engine, f'''
         ALTER TABLE {table_name} RENAME COLUMN geometry TO geom;
         ALTER INDEX idx_{table_name}_geometry
             RENAME TO idx_{table_name}_geom;
-    '''))
+    ''')
 
 
 def get_db_writer(

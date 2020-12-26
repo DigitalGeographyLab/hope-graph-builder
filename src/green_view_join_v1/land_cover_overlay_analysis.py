@@ -6,7 +6,7 @@ from common.logger import Logger
 import db
 
 
-subset = True
+subset = False
 
 edge_buffers_table = 'edge_buffers_subset' if subset else 'edge_buffers'
 final_low_veg_share_table = 'edge_subset_low_veg_shares' if subset else 'edge_low_veg_shares'
