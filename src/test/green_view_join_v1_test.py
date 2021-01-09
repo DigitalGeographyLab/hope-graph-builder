@@ -11,8 +11,8 @@ from common.logger import Logger
 import common.igraph as ig_utils
 from common.igraph import Edge as E
 from green_view_join_v1.green_view_join_v1 import (
-    get_point_gvi_list_by_way_id, load_point_gvi_gdf, 
-    get_mean_edge_point_gvi, get_mean_point_gvi_by_way_id, 
+    get_gsv_gvi_list_by_way_id, load_gsv_gvi_gdf, 
+    get_mean_edge_gsv_gvi, get_mean_gsv_gvi_by_way_id, 
     update_gvi_attributes_to_graph)
 
 
@@ -29,16 +29,16 @@ def edge_gdf(graph) -> GeoDataFrame:
     yield ig_utils.get_edge_gdf(graph, attrs=[E.id_way, E.length])
 
 @pytest.fixture
-def point_gvi_gdf() -> GeoDataFrame:
-    yield load_point_gvi_gdf(r'data/greenery_points.gpkg')
+def gsv_gvi_gdf() -> GeoDataFrame:
+    yield load_gsv_gvi_gdf(r'data/greenery_points.gpkg')
 
 @pytest.fixture
-def gvi_list_by_way_id(edge_gdf, point_gvi_gdf) -> Dict[int, List[float]]:
-    yield get_point_gvi_list_by_way_id(log, edge_gdf, point_gvi_gdf)
+def gvi_list_by_way_id(edge_gdf, gsv_gvi_gdf) -> Dict[int, List[float]]:
+    yield get_gsv_gvi_list_by_way_id(log, edge_gdf, gsv_gvi_gdf)
 
 @pytest.fixture
-def mean_point_gvi_by_way_id(gvi_list_by_way_id, edge_gdf) -> Dict[int, List[float]]:
-    yield get_mean_point_gvi_by_way_id(log, gvi_list_by_way_id, edge_gdf)
+def mean_gsv_gvi_by_way_id(gvi_list_by_way_id, edge_gdf) -> Dict[int, List[float]]:
+    yield get_mean_gsv_gvi_by_way_id(log, gvi_list_by_way_id, edge_gdf)
 
 @pytest.fixture
 def low_veg_share_by_way_id() -> Dict[int, List[float]]:
@@ -55,7 +55,7 @@ def high_veg_share_by_way_id() -> Dict[int, List[float]]:
     yield dict(zip(way_ids, high_veg_shares))
 
 
-def test_get_point_gvi_list_by_edges(gvi_list_by_way_id):
+def test_get_gsv_gvi_list_by_edges(gvi_list_by_way_id):
     assert isinstance(gvi_list_by_way_id, dict)
     assert len(gvi_list_by_way_id) == 1808
     for way_id, gvi_list in gvi_list_by_way_id.items():
@@ -66,36 +66,36 @@ def test_get_point_gvi_list_by_edges(gvi_list_by_way_id):
             assert isinstance(gvi, float)
 
 
-def test_calculate_mean_edge_point_gvi():
+def test_calculate_mean_edge_gsv_gvi():
     gvi_list = [0.5, 1, 0]
-    m_gvi = get_mean_edge_point_gvi(10, gvi_list)
+    m_gvi = get_mean_edge_gsv_gvi(10, gvi_list)
     assert m_gvi == 0.5
-    m_gvi = get_mean_edge_point_gvi(5, gvi_list)
+    m_gvi = get_mean_edge_gsv_gvi(5, gvi_list)
     assert m_gvi == 0.5
-    m_gvi = get_mean_edge_point_gvi(40, gvi_list)
+    m_gvi = get_mean_edge_gsv_gvi(40, gvi_list)
     assert m_gvi == 0.5
-    m_gvi = get_mean_edge_point_gvi(70, gvi_list)
+    m_gvi = get_mean_edge_gsv_gvi(70, gvi_list)
     assert m_gvi == 0.5
-    m_gvi = get_mean_edge_point_gvi(80, gvi_list)
+    m_gvi = get_mean_edge_gsv_gvi(80, gvi_list)
     assert m_gvi is None
 
 
-def test_mean_get_mean_point_gvi_by_way_id(mean_point_gvi_by_way_id):
-    for way_id, mean_point_gvi in mean_point_gvi_by_way_id.items():
+def test_mean_get_mean_gsv_gvi_by_way_id(mean_gsv_gvi_by_way_id):
+    for way_id, mean_gsv_gvi in mean_gsv_gvi_by_way_id.items():
         assert isinstance(way_id, int)
-        assert isinstance(mean_point_gvi, float)
-    assert len(mean_point_gvi_by_way_id) == 1718
+        assert isinstance(mean_gsv_gvi, float)
+    assert len(mean_gsv_gvi_by_way_id) == 1718
 
 
 def test_join_gvi_attributes_to_graph(
     graph,
-    mean_point_gvi_by_way_id,
+    mean_gsv_gvi_by_way_id,
     low_veg_share_by_way_id,
     high_veg_share_by_way_id
 ):
     updated = update_gvi_attributes_to_graph(
         graph,
-        mean_point_gvi_by_way_id,
+        mean_gsv_gvi_by_way_id,
         low_veg_share_by_way_id,
         high_veg_share_by_way_id
     )
