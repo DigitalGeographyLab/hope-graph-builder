@@ -15,7 +15,7 @@ hel_extent = gpd.read_file(r'hel.geojson')
 out_graph = fr'graph_out/{graph_name}.graphml'
 out_graph_research = fr'graph_out/{graph_name}_r.graphml'
 out_graph_research_hel = fr'graph_out/{graph_name}_r_hel-clip.graphml'
-out_geojson_noise = fr'graph_out/{graph_name}_noise.geojson'
+out_geojson_noise_gvi = fr'graph_out/{graph_name}_noise_gvi.geojson'
 out_geojson = fr'graph_out/{graph_name}.geojson'
 
 out_node_attrs = [N.geometry]
@@ -61,7 +61,7 @@ ig_utils.export_to_graphml(graph, out_graph, n_attrs=out_node_attrs, e_attrs=out
 # create GeoJSON files for vector tiles
 geojson = utils.create_geojson(graph)
 utils.write_geojson(geojson, out_geojson, overwrite=True, id_attr=True)
-utils.write_geojson(geojson, out_geojson_noise, overwrite=True, db_prop=True)
+utils.write_geojson(geojson, out_geojson_noise_gvi, overwrite=True, db_prop=True, gvi_prop=True)
 
 
 # for research use, set combined GVI that omits low vegetation to GVI attribute and export graph

@@ -57,24 +57,35 @@ def __get_coord_list(geom: LineString) -> List[List[float]]:
     return [ [round(coords[0], 6), round(coords[1], 6)] for coords in coords_list]
 
 
-def __get_geojson_feature_dict(way_id, coords: List[tuple], db: int) -> dict:
+def __get_geojson_feature_dict(way_id, coords: List[tuple], db: int, gvi: float) -> dict:
     """Returns a dictionary with GeoJSON schema and geometry based on the given geometry. The returned dictionary can be used as a
     feature inside a GeoJSON feature collection. 
     """
-    feature = { 
+    feature = {
         'type': 'Feature', 
         'id': way_id,
-        'properties': { 'db': db }, 
+        'properties': {
+            'db': db,
+            'gvi': gvi
+        }, 
         'geometry': {
             'coordinates': coords,
             'type': 'LineString'
-            }
         }
+    }
     return feature
 
 
 def __as_geojson_feature_collection(df_dicts) -> dict:
-    features = [__get_geojson_feature_dict(d[E.id_way.name], d['coords'], d['db']) for d in df_dicts]
+    features = [__get_geojson_feature_dict(
+            d[E.id_way.name], 
+            d['coords'], 
+            d['db'],
+            d[E.gvi.name]
+        )
+        for d in df_dicts
+    ]
+
     return {
         "type": "FeatureCollection",
         "features": features
@@ -82,7 +93,7 @@ def __as_geojson_feature_collection(df_dicts) -> dict:
 
 
 def create_geojson(graph: ig.Graph) -> dict:
-    df = ig_utils.get_edge_gdf(graph, attrs=[E.id_way, E.length, E.noises], geom_attr=E.geom_wgs)
+    df = ig_utils.get_edge_gdf(graph, attrs=[E.id_way, E.length, E.noises, E.gvi], geom_attr=E.geom_wgs)
     # drop edges without geometry
     df = df[df[E.geom_wgs.name].apply(lambda geom: isinstance(geom, LineString))]
     # drop edges with duplicate geometry
@@ -93,7 +104,7 @@ def create_geojson(graph: ig.Graph) -> dict:
     # simplify geometries a bit, TODO think about if this is needed (as decrease in file size is small)
     df[E.geom_wgs.name] = [geom.simplify(0.00005, preserve_topology=True) for geom in df[E.geom_wgs.name]]
     df['coords'] = [__get_coord_list(geom) for geom in df[E.geom_wgs.name]]
-    return __as_geojson_feature_collection(df[[E.id_way.name, 'coords', 'db']].to_dict('records'))
+    return __as_geojson_feature_collection(df[[E.id_way.name, 'coords', 'db', E.gvi.name]].to_dict('records'))
 
 
 def __write_line_delimited_geojson(
@@ -101,19 +112,26 @@ def __write_line_delimited_geojson(
     out_file: str, 
     overwrite: bool = False, 
     db_prop: bool = False, 
+    gvi_prop: bool = False, 
     id_attr: bool = False
-    ) -> None:
+) -> None:
     
     if overwrite and os.path.isfile(out_file):
         os.remove(out_file)
+    
     separator = ',\n'
     the_file = open(out_file, 'a')
+
     for idx, feature in enumerate(geojson_dict['features']):
         d = dict(feature)
 
         props = dict(feature['properties'])
+
         if not db_prop:
             del props['db']
+        if not gvi_prop:
+            del props['gvi']
+        
         d['properties'] = props
 
         if not id_attr:
@@ -121,22 +139,35 @@ def __write_line_delimited_geojson(
         
         if idx == (len(geojson_dict['features']) - 1):
             separator = '\n'
+        
         the_file.write(json.dumps(d, separators=(',', ':')) + separator)
 
     the_file.close()
 
 
-def write_geojson(geojson_dict: dict, out_file: str, overwrite: bool=False, db_prop=False, id_attr=False) -> None:
+def write_geojson(
+    geojson_dict: dict,
+    out_file: str,
+    overwrite: bool = False,
+    db_prop = False,
+    gvi_prop = False,
+    id_attr = False
+) -> None:
     if overwrite and os.path.isfile(out_file):
         os.remove(out_file)
-    # json_text = json.dumps(geojson_dict, indent=1)
 
     # begin FeatureCollection wrapper
     the_file = open(out_file, 'a')
     the_file.write('{"type":"FeatureCollection","features":[\n')
     the_file.close()
 
-    __write_line_delimited_geojson(geojson_dict, out_file, db_prop=db_prop, id_attr=id_attr)
+    __write_line_delimited_geojson(
+        geojson_dict,
+        out_file,
+        db_prop=db_prop,
+        gvi_prop=gvi_prop,
+        id_attr=id_attr
+    )
 
     # end FeatureCollection wrapper
     the_file = open(out_file, 'a')
