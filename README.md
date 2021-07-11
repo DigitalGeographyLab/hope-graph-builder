@@ -1,4 +1,6 @@
-# hope-graph-builder
+# hope-graph-builder (deprecated)
+
+This repository is deprecated as a separate project - all functionality have been integrated into [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server). 
 
 This repository contains utilities for importing and processing [OpenStreetMap](https://www.openstreetmap.org/copyright) based street network graphs [created and exported with OpenTripPlanner](https://github.com/DigitalGeographyLab/OpenTripPlanner/pull/1). The graphs will be used at least in [hope-green-path-server](https://github.com/DigitalGeographyLab/hope-green-path-server) which is a route planner for walking and cycling that finds routes with less traffic noise and air pollution. 
 
